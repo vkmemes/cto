@@ -1,0 +1,148 @@
+{
+  "groups": {
+    "ИС1-11": {
+      "numerator": {
+        "monday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Математика",
+            "teacher": "Иванов И.И.",
+            "room": "201"
+          },
+          {
+            "time": "10:10-11:40",
+            "subject": "Информатика",
+            "teacher": "Петров П.П.",
+            "room": "305"
+          }
+        ],
+        "tuesday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Русский язык",
+            "teacher": "Сидорова С.С.",
+            "room": "102"
+          }
+        ],
+        "wednesday": [],
+        "thursday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Физкультура",
+            "teacher": "Спортов С.А.",
+            "room": "Спортзал"
+          }
+        ],
+        "friday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "История",
+            "teacher": "Историков Г.В.",
+            "room": "210"
+          }
+        ],
+        "saturday": [],
+        "sunday": []
+      },
+      "denominator": {
+        "monday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Английский язык",
+            "teacher": "Англов А.А.",
+            "room": "301"
+          }
+        ],
+        "tuesday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Программирование",
+            "teacher": "Петров П.П.",
+            "room": "305"
+          }
+        ],
+        "wednesday": [],
+        "thursday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Базы данных",
+            "teacher": "Базов Б.Б.",
+            "room": "306"
+          }
+        ],
+        "friday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Web-технологии",
+            "teacher": "Вебов В.В.",
+            "room": "307"
+          }
+        ],
+        "saturday": [],
+        "sunday": []
+      }
+    },
+    "ИС1-12": {
+      "numerator": {
+        "monday": [
+          {
+            "time": "10:10-11:40",
+            "subject": "Математика",
+            "teacher": "Иванов И.И.",
+            "room": "201"
+          }
+        ],
+        "tuesday": [],
+        "wednesday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Информатика",
+            "teacher": "Петров П.П.",
+            "room": "305"
+          }
+        ],
+        "thursday": [],
+        "friday": [
+          {
+            "time": "10:10-11:40",
+            "subject": "История",
+            "teacher": "Историков Г.В.",
+            "room": "210"
+          }
+        ],
+        "saturday": [],
+        "sunday": []
+      },
+      "denominator": {
+        "monday": [
+          {
+            "time": "10:10-11:40",
+            "subject": "Английский язык",
+            "teacher": "Англов А.А.",
+            "room": "301"
+          }
+        ],
+        "tuesday": [],
+        "wednesday": [
+          {
+            "time": "08:30-10:00",
+            "subject": "Программирование",
+            "teacher": "Петров П.П.",
+            "room": "305"
+          }
+        ],
+        "thursday": [],
+        "friday": [
+          {
+            "time": "10:10-11:40",
+            "subject": "Web-технологии",
+            "teacher": "Вебов В.В.",
+            "room": "307"
+          }
+        ],
+        "saturday": [],
+        "sunday": []
+      }
+    }
+  }
+}

@@ -1,0 +1,146 @@
+STTEC Schedule System - Complete File Listing
+==============================================
+
+Core Python Files:
+------------------
+ core.py                    - Schedule management logic (ScheduleManager, parsing, week parity)
+ database.py                - Database ORM models and async methods (SQLAlchemy)
+ bot_main.py                - Telegram bot with commands, jobs, middleware
+ web_main.py                - Web server with API endpoints (Starlette)
+ migrate.py                 - Database migration script
+ test_setup.py              - Setup verification script
+
+HTML Templates:
+---------------
+ templates/schedule_view_template.html  - Schedule viewer (PWA, Telegram WebApp)
+ templates/homework_form.html           - Homework submission form
+ templates/headman_panel.html           - Headman management panel
+ templates/manifest.json                - PWA manifest
+
+Configuration Files:
+--------------------
+ requirements.txt           - Python dependencies
+ .env.example               - Environment variables template
+ .gitignore                 - Git ignore patterns
+ schedule.json              - Base schedule data
+
+Deployment Files:
+-----------------
+ sttec-bot.service          - systemd service for bot
+ sttec-web.service          - systemd service for web
+
+Documentation:
+--------------
+ README.md                  - Main documentation
+ QUICKSTART.md              - Quick start guide
+ ARCHITECTURE.md            - System architecture documentation
+ PROJECT_FILES.txt          - This file
+
+Directories:
+------------
+ logs/                      - Log files directory
+ templates/                 - HTML templates directory
+ cto/                       - Original specification files
+
+Statistics:
+-----------
+Python Files:       6 files
+HTML Templates:     3 files
+JSON Files:         2 files
+Documentation:      4 files
+Service Files:      2 files
+Config Files:       3 files
+
+Total Lines of Code:
+--------------------
+core.py:           ~230 lines
+database.py:       ~220 lines
+bot_main.py:       ~380 lines
+web_main.py:       ~250 lines
+migrate.py:        ~30 lines
+test_setup.py:     ~200 lines
+
+Templates:         ~700 lines
+Documentation:     ~1200 lines
+Total:             ~3200 lines
+
+Technologies Used:
+------------------
+- Python 3.8+
+- python-telegram-bot 21.0.1
+- Starlette 0.36.3
+- SQLAlchemy 2.0.27 (async)
+- aiosqlite 0.19.0
+- BeautifulSoup4 4.12.3
+- Pydantic 2.6.1
+- Jinja2 3.1.3
+- Tailwind CSS (CDN)
+- Telegram WebApp API
+
+Features Implemented:
+---------------------
+ Telegram bot with subscription middleware
+ Schedule viewer (today/tomorrow/week)
+ Replacement parsing from HTML
+ Week parity calculation (numerator/denominator)
+ Smart group matching with normalization
+ Scheduled jobs (notifications, duty rotation)
+ Web interface with PWA support
+ REST API for Mini Apps
+ Homework management system
+ Headman panel with group management
+ PIN-based authentication
+ Duty rotation automation
+ Illness tracking with auto-reset
+ Deep linking support
+ Broadcast messaging
+ KWGT widget API
+
+Memory Optimizations:
+---------------------
+ SQLite with connection pooling (pool_size=5)
+ Replacement caching (TTL=5min)
+ Async/await architecture
+ Minimal dependencies
+ No eager loading
+ Optimized for 512MB RAM
+
+Security Features:
+------------------
+ Subscription middleware
+ PIN authentication for web
+ Input validation (Pydantic)
+ Parameterized SQL queries
+ Environment variable configuration
+ No sensitive data in logs
+ CORS middleware
+ Error handling without info leakage
+
+Deployment Ready:
+-----------------
+ systemd service files
+ Production-ready logging
+ Graceful shutdown handling
+ Auto-restart configuration
+ Environment-based config
+ Database initialization script
+ Setup verification script
+
+Testing & Verification:
+-----------------------
+ Syntax check passed (all .py files)
+ JSON validation passed
+ Template structure verified
+ test_setup.py for comprehensive checks
+ Manual testing commands documented
+
+Next Steps for User:
+--------------------
+1. Install dependencies: pip install -r requirements.txt
+2. Configure .env file
+3. Run: python migrate.py
+4. Edit schedule.json with actual schedule
+5. Start bot: python bot_main.py
+6. Start web: python web_main.py
+7. Run verification: python test_setup.py
+

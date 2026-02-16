@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homework Form - STTEC</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 class="text-3xl font-bold text-center mb-6">📝 Домашнее задание</h1>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Группа:</label>
+                <input 
+                    type="text" 
+                    id="groupInput" 
+                    placeholder="Название группы" 
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">PIN-код:</label>
+                <input 
+                    type="password" 
+                    id="pinInput" 
+                    placeholder="Введите PIN" 
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Предмет:</label>
+                <input 
+                    type="text" 
+                    id="subjectInput" 
+                    placeholder="Название предмета" 
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Домашнее задание:</label>
+                <textarea 
+                    id="homeworkInput" 
+                    rows="6" 
+                    placeholder="Введите задание..."
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                ></textarea>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Режим:</label>
+                <select 
+                    id="modeSelect" 
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="overwrite">Перезаписать</option>
+                    <option value="append">Добавить</option>
+                </select>
+            </div>
+            
+            <div class="flex gap-2 mb-4">
+                <button 
+                    onclick="submitHomework()" 
+                    class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                >
+                    ✅ Отправить
+                </button>
+                <button 
+                    onclick="loadHomework()" 
+                    class="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
+                >
+                    📋 Загрузить
+                </button>
+            </div>
+            
+            <div id="homeworkList" class="mt-6"></div>
+            <div id="statusMessage" class="mt-4 text-center"></div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+
+        async function submitHomework() {
+            const group = document.getElementById('groupInput').value.trim();
+            const pin = document.getElementById('pinInput').value.trim();
+            const subject = document.getElementById('subjectInput').value.trim();
+            const text = document.getElementById('homeworkInput').value.trim();
+            const mode = document.getElementById('modeSelect').value;
+
+            if (!group || !pin || !subject || !text) {
+                showStatus('❌ Заполните все поля', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/homework', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        group: group,
+                        pin: pin,
+                        subject: subject,
+                        text: text,
+                        mode: mode
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus('✅ Домашнее задание отправлено!', 'success');
+                    document.getElementById('homeworkInput').value = '';
+                    document.getElementById('subjectInput').value = '';
+                    
+                    localStorage.setItem('hw_group', group);
+                    localStorage.setItem('hw_pin', pin);
+                    
+                    setTimeout(() => loadHomework(), 1000);
+                } else {
+                    showStatus('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Ошибка сети: ' + error.message, 'error');
+            }
+        }
+
+        async function loadHomework() {
+            const group = document.getElementById('groupInput').value.trim();
+            const pin = document.getElementById('pinInput').value.trim();
+
+            if (!group || !pin) {
+                showStatus('❌ Введите группу и PIN', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/homework?group=${encodeURIComponent(group)}&pin=${encodeURIComponent(pin)}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayHomework(data.homework);
+                    localStorage.setItem('hw_group', group);
+                    localStorage.setItem('hw_pin', pin);
+                } else {
+                    showStatus('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Ошибка сети: ' + error.message, 'error');
+            }
+        }
+
+        function displayHomework(homework) {
+            const container = document.getElementById('homeworkList');
+            
+            if (homework.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500">Нет домашних заданий</p>';
+                return;
+            }
+
+            const groupedBySubject = {};
+            homework.forEach(hw => {
+                if (!groupedBySubject[hw.subject]) {
+                    groupedBySubject[hw.subject] = [];
+                }
+                groupedBySubject[hw.subject].push(hw);
+            });
+
+            let html = '<div class="space-y-4">';
+            
+            for (const [subject, items] of Object.entries(groupedBySubject)) {
+                html += `
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <h3 class="font-bold text-lg mb-2">${subject}</h3>
+                        <div class="space-y-2">
+                `;
+                
+                items.forEach(hw => {
+                    const date = new Date(hw.created_at).toLocaleString('ru-RU');
+                    html += `
+                        <div class="bg-white p-3 rounded border-l-4 border-blue-500">
+                            <p class="whitespace-pre-wrap">${hw.text}</p>
+                            <p class="text-xs text-gray-500 mt-2">📅 ${date}</p>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `mt-4 text-center p-3 rounded ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+            
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = 'mt-4 text-center';
+            }, 3000);
+        }
+
+        window.addEventListener('load', () => {
+            const savedGroup = localStorage.getItem('hw_group');
+            const savedPin = localStorage.getItem('hw_pin');
+            
+            if (savedGroup) {
+                document.getElementById('groupInput').value = savedGroup;
+            }
+            if (savedPin) {
+                document.getElementById('pinInput').value = savedPin;
+            }
+        });
+
+        if (tg) {
+            tg.BackButton.onClick(() => {
+                window.history.back();
+            });
+        }
+    </script>
+</body>
+</html>
