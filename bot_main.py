@@ -18,6 +18,8 @@ from telegram.error import Forbidden, BadRequest
 from database import Database
 from core import ScheduleManager
 
+os.makedirs("logs", exist_ok=True)
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -236,24 +238,28 @@ async def job_smart_poll(context: ContextTypes.DEFAULT_TYPE):
             return
         
         target_date_str = date.today().strftime("%d.%m.%Y")
+        schedule_cache = {}
         
         for group_name, repl_data in replacements.items():
             if repl_data.get("date") != target_date_str:
                 continue
             
             users = await db.get_users_by_group(group_name)
+            if group_name not in schedule_cache:
+                schedule_cache[group_name] = await schedule_manager.get_schedule_for_date(group_name, date.today())
+            day_schedule = schedule_cache[group_name]
+            if not day_schedule:
+                continue
             
             for user in users:
                 if user.last_notify_date == date.today():
                     continue
                 
                 try:
-                    day_schedule = await schedule_manager.get_schedule_for_date(group_name, date.today())
-                    if day_schedule:
-                        text = "🔔 Обновление расписания!\n\n" + schedule_manager.format_schedule_text(day_schedule)
-                        await context.bot.send_message(chat_id=user.user_id, text=text)
-                        await db.mark_user_notified_today(user.user_id)
-                        await asyncio.sleep(0.05)
+                    text = "🔔 Обновление расписания!\n\n" + schedule_manager.format_schedule_text(day_schedule)
+                    await context.bot.send_message(chat_id=user.user_id, text=text)
+                    await db.mark_user_notified_today(user.user_id)
+                    await asyncio.sleep(0.05)
                 except (Forbidden, BadRequest) as e:
                     logger.warning(f"Cannot send to user {user.user_id}: {e}")
     
@@ -362,6 +368,7 @@ def main():
     
     async def post_shutdown(application: Application):
         await db.close()
+        await schedule_manager.close()
         logger.info("Database closed")
     
     application.post_init = post_init
