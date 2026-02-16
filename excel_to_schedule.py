@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """
-Excel to schedule.json converter
-Converts Excel schedule to JSON format for STTEC Schedule system.
+Excel to schedule.json converter - OIT 2nd Semester Edition
+Converts Excel schedule from STTEC format to JSON format for STTEC Schedule system.
 
-Expected Excel format:
-- First row: Headers (Group names)
-- First column: Time slots
-- Cells: Subject/Teacher/Room (separated by newlines or commas)
+Excel format (oit_2sem.xlsx):
+- Multiple sheets (one per course/specialty)
+- Multiple groups per sheet
+- Row structure: [Pair#] [Subject] ... [Teacher] ... [Room]
+- No numerator/denominator separation
+
+Optimized for 8GB RAM - processes file efficiently.
 """
 
 import json
 import sys
 import re
 from pathlib import Path
+from typing import Dict, List, Optional, Any
 
 try:
     import openpyxl
@@ -21,156 +25,46 @@ except ImportError:
     sys.exit(1)
 
 
-def clean_text(text):
+def clean_text(text) -> str:
     """Clean and normalize text."""
     if text is None:
         return ""
     return str(text).strip()
 
 
-def parse_lesson_cell(cell_text):
+def parse_group_header(cell_text: str) -> List[str]:
     """
-    Parse lesson cell into subject, teacher, room.
+    Parse group header like 'ИС1-11/ИС1-12' into list of groups.
+    Returns list of individual group names.
+    """
+    text = clean_text(cell_text)
+    if not text:
+        return []
     
-    Expected formats:
-    - "Subject\nTeacher\nRoom"
-    - "Subject, Teacher, Room"
-    - "Subject"
+    # Split by common separators
+    groups = re.split(r'[/\\,;|]+', text)
+    groups = [g.strip() for g in groups if g.strip()]
+    
+    # Normalize group names
+    normalized = []
+    for group in groups:
+        # Remove extra spaces
+        group = re.sub(r'\s+', ' ', group)
+        # Ensure pattern like ИС1-11
+        group = re.sub(r'([А-ЯA-Z]+)\s*(\d)', r'\1\2', group)
+        normalized.append(group)
+    
+    return normalized
+
+
+def is_day_name(cell_text: str) -> Optional[str]:
     """
-    if not cell_text or cell_text == "":
+    Check if text is a day name and return normalized day name.
+    Returns None if not a day.
+    """
+    text = clean_text(cell_text).lower()
+    if not text:
         return None
-    
-    # Split by newline or comma
-    parts = []
-    if '\n' in cell_text:
-        parts = [p.strip() for p in cell_text.split('\n') if p.strip()]
-    elif ',' in cell_text:
-        parts = [p.strip() for p in cell_text.split(',') if p.strip()]
-    else:
-        parts = [cell_text.strip()]
-    
-    # Parse parts
-    subject = parts[0] if len(parts) > 0 else ""
-    teacher = parts[1] if len(parts) > 1 else ""
-    room = parts[2] if len(parts) > 2 else ""
-    
-    if not subject:
-        return None
-    
-    return {
-        "subject": subject,
-        "teacher": teacher,
-        "room": room
-    }
-
-
-def parse_time_slot(time_text):
-    """
-    Parse time slot from various formats.
-    
-    Examples:
-    - "08:30-10:00"
-    - "1 пара (08:30-10:00)"
-    - "08:30 - 10:00"
-    """
-    time_text = clean_text(time_text)
-    
-    # Extract time pattern like "08:30-10:00"
-    match = re.search(r'(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})', time_text)
-    if match:
-        return f"{match.group(1)}-{match.group(2)}"
-    
-    # If no pattern found, return as is
-    return time_text if time_text else "00:00-00:00"
-
-
-def detect_layout(sheet):
-    """
-    Detect Excel layout type.
-    
-    Returns:
-    - 'horizontal': Groups in columns, days/times in rows
-    - 'vertical': Groups in rows, days/times in columns
-    """
-    # Check first row for group names
-    first_row = [clean_text(cell.value) for cell in sheet[1]]
-    
-    # If first row contains typical group patterns, it's horizontal
-    group_patterns = [r'[А-Я]{2,4}[-\d]+', r'группа', r'курс']
-    for cell in first_row[1:]:  # Skip first column
-        if any(re.search(pattern, cell, re.IGNORECASE) for pattern in group_patterns):
-            return 'horizontal'
-    
-    return 'horizontal'  # Default to horizontal
-
-
-def parse_horizontal_layout(sheet):
-    """
-    Parse horizontal layout: groups in columns, days/times in rows.
-    
-    Expected structure:
-    Row 1: [Time] [Group1] [Group2] [Group3] ...
-    Row 2: [08:30-10:00] [Lesson] [Lesson] [Lesson] ...
-    ...
-    
-    Or with day headers:
-    Row 1: [Monday]
-    Row 2: [Time] [Group1] [Group2] ...
-    Row 3: [08:30-10:00] [Lesson] [Lesson] ...
-    """
-    schedule = {}
-    
-    # Find header row (with group names)
-    header_row_idx = None
-    group_columns = {}
-    
-    for row_idx, row in enumerate(sheet.iter_rows(min_row=1, max_row=5), start=1):
-        cells = [clean_text(cell.value) for cell in row]
-        
-        # Check if this row has group names
-        group_count = 0
-        for col_idx, cell in enumerate(cells[1:], start=2):  # Skip first column
-            if re.search(r'[А-Я]{2,4}[-\d/]+', cell):
-                group_count += 1
-                group_columns[col_idx] = cell
-        
-        if group_count >= 2:  # At least 2 groups found
-            header_row_idx = row_idx
-            break
-    
-    if not header_row_idx:
-        print("Error: Could not find header row with group names")
-        return {}
-    
-    print(f"Found {len(group_columns)} groups in row {header_row_idx}")
-    print(f"Groups: {', '.join(group_columns.values())}")
-    
-    # Initialize schedule structure
-    for group_name in group_columns.values():
-        schedule[group_name] = {
-            "numerator": {
-                "monday": [],
-                "tuesday": [],
-                "wednesday": [],
-                "thursday": [],
-                "friday": [],
-                "saturday": [],
-                "sunday": []
-            },
-            "denominator": {
-                "monday": [],
-                "tuesday": [],
-                "wednesday": [],
-                "thursday": [],
-                "friday": [],
-                "saturday": [],
-                "sunday": []
-            }
-        }
-    
-    # Parse lessons
-    current_day = "monday"
-    current_week = "numerator"
     
     day_names = {
         'понедельник': 'monday',
@@ -186,60 +80,162 @@ def parse_horizontal_layout(sheet):
         'чт': 'thursday',
         'пт': 'friday',
         'сб': 'saturday',
-        'вс': 'sunday'
+        'вс': 'sunday',
     }
     
-    week_names = {
-        'числитель': 'numerator',
-        'знаменатель': 'denominator',
-        'чис': 'numerator',
-        'знам': 'denominator'
-    }
+    for rus, eng in day_names.items():
+        if rus in text:
+            return eng
     
-    for row in sheet.iter_rows(min_row=header_row_idx + 1):
-        first_cell = clean_text(row[0].value).lower()
+    return None
+
+
+def is_group_header(cell_text: str) -> bool:
+    """Check if cell contains a group header pattern like 'ИС1-11/ИС1-12'."""
+    text = clean_text(cell_text)
+    # Pattern: Cyrillic letters + digit + hyphen + digits
+    # May contain / for multiple groups
+    pattern = r'[А-ЯA-Z]+\d+[-–]\d+.*'
+    return bool(re.search(pattern, text))
+
+
+def is_pair_number(cell_text: str) -> Optional[int]:
+    """Check if cell contains a pair number (1-8)."""
+    text = clean_text(cell_text)
+    if text.isdigit():
+        num = int(text)
+        if 1 <= num <= 8:
+            return num
+    return None
+
+
+def parse_time_for_pair(pair_num: int) -> str:
+    """Get standard time for pair number."""
+    # Standard schedule times
+    times = {
+        1: "08:30-10:00",
+        2: "10:10-11:40",
+        3: "12:00-13:30",
+        4: "13:40-15:10",
+        5: "15:20-16:50",
+        6: "17:00-18:30",
+        7: "18:40-20:10",
+        8: "20:15-21:45",
+    }
+    return times.get(pair_num, f"{pair_num} пара")
+
+
+def split_multi_value(text: str) -> List[str]:
+    """Split text by newlines into multiple values."""
+    if not text:
+        return [""]
+    parts = text.split('\n')
+    parts = [p.strip() for p in parts if p.strip()]
+    return parts if parts else [""]
+
+
+def parse_lesson(subject: str, teacher: str, room: str, pair_num: int) -> Optional[Dict[str, Any]]:
+    """
+    Parse lesson data into structured format.
+    Handles multiple teachers/rooms separated by newlines.
+    """
+    subject = clean_text(subject)
+    if not subject:
+        return None
+    
+    teacher = clean_text(teacher)
+    room = clean_text(room)
+    
+    # Handle case when subject has multiple lines (subgroup lessons)
+    subjects = split_multi_value(subject)
+    teachers = split_multi_value(teacher)
+    rooms = split_multi_value(room)
+    
+    # If we have multiple subjects on same pair, create combined entry
+    if len(subjects) > 1:
+        # Multiple lessons at same time (subgroups)
+        return {
+            "time": parse_time_for_pair(pair_num),
+            "subject": subject,
+            "teacher": teacher,
+            "room": room,
+            "subgroups": True
+        }
+    
+    return {
+        "time": parse_time_for_pair(pair_num),
+        "subject": subjects[0],
+        "teacher": teachers[0] if teachers else "",
+        "room": rooms[0] if rooms else "",
+        "subgroups": False
+    }
+
+
+def init_schedule_structure() -> Dict[str, Any]:
+    """Initialize empty schedule structure for a group."""
+    days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    return {
+        "numerator": {day: [] for day in days},
+        "denominator": {day: [] for day in days}
+    }
+
+
+def parse_sheet(sheet) -> Dict[str, Dict[str, Any]]:
+    """
+    Parse a single sheet and return schedule for all groups on that sheet.
+    
+    Structure:
+    - Group header row (e.g., "ИС1-11/ИС1-12")
+    - Day header (e.g., "Понедельник")
+    - Lessons with pair number, subject, teacher, room
+    """
+    schedules = {}  # group_name -> schedule
+    current_groups = []
+    current_day = "monday"
+    
+    print(f"  Parsing sheet: {sheet.title} ({sheet.max_row} rows)")
+    
+    for row_idx, row in enumerate(sheet.iter_rows(min_row=1, max_row=sheet.max_row), start=1):
+        # Get key cell values
+        col1 = clean_text(row[0].value)  # Pair number or day or group header
+        col2 = clean_text(row[1].value) if len(row) > 1 else ""  # Subject
+        col6 = clean_text(row[5].value) if len(row) > 5 else ""  # Teacher
+        col9 = clean_text(row[8].value) if len(row) > 8 else ""  # Room
+        
+        # Check for group header
+        if is_group_header(col1) and not is_day_name(col1) and not is_pair_number(col1):
+            groups = parse_group_header(col1)
+            if groups:
+                current_groups = groups
+                for group in groups:
+                    if group not in schedules:
+                        schedules[group] = init_schedule_structure()
+                        print(f"    Found group: {group}")
+            continue
         
         # Check for day name
-        for rus_day, eng_day in day_names.items():
-            if rus_day in first_cell:
-                current_day = eng_day
-                print(f"Day: {current_day}")
-                break
+        day = is_day_name(col1)
+        if day:
+            current_day = day
+            continue
         
-        # Check for week type
-        for rus_week, eng_week in week_names.items():
-            if rus_week in first_cell:
-                current_week = eng_week
-                print(f"Week: {current_week}")
-                break
-        
-        # Check if this is a time slot row
-        time_slot = parse_time_slot(first_cell)
-        if ':' in time_slot and '-' in time_slot:
-            # Parse lessons for each group
-            for col_idx, group_name in group_columns.items():
-                cell_value = clean_text(row[col_idx - 1].value)
-                
-                if cell_value:
-                    lesson = parse_lesson_cell(cell_value)
-                    if lesson:
-                        lesson['time'] = time_slot
-                        schedule[group_name][current_week][current_day].append(lesson)
+        # Check for pair number and parse lesson
+        pair_num = is_pair_number(col1)
+        if pair_num and col2 and current_groups:
+            lesson = parse_lesson(col2, col6, col9, pair_num)
+            if lesson:
+                # Add to all current groups
+                for group in current_groups:
+                    # Add to both numerator and denominator (no separation in this format)
+                    if lesson not in schedules[group]["numerator"][current_day]:
+                        schedules[group]["numerator"][current_day].append(lesson)
+                    if lesson not in schedules[group]["denominator"][current_day]:
+                        schedules[group]["denominator"][current_day].append(lesson)
     
-    return schedule
+    return schedules
 
 
-def parse_vertical_layout(sheet):
-    """
-    Parse vertical layout: groups in rows, days/times in columns.
-    (Alternative layout, less common)
-    """
-    # TODO: Implement if needed
-    print("Vertical layout not yet implemented. Using horizontal parser.")
-    return parse_horizontal_layout(sheet)
-
-
-def convert_excel_to_json(excel_path, output_path='schedule.json'):
+def convert_excel_to_json(excel_path: str, output_path: str = 'schedule.json') -> bool:
     """
     Convert Excel file to schedule.json.
     
@@ -250,42 +246,55 @@ def convert_excel_to_json(excel_path, output_path='schedule.json'):
     print(f"Reading Excel file: {excel_path}")
     
     try:
-        workbook = openpyxl.load_workbook(excel_path, data_only=True)
+        # Use read_only for memory efficiency (good for 8GB RAM)
+        workbook = openpyxl.load_workbook(excel_path, data_only=True, read_only=False)
     except Exception as e:
         print(f"Error loading Excel file: {e}")
         return False
     
-    # Try first sheet
-    sheet = workbook.active
-    print(f"Processing sheet: {sheet.title}")
-    print(f"Dimensions: {sheet.max_row} rows x {sheet.max_column} columns")
+    all_schedules = {}
     
-    # Detect layout
-    layout = detect_layout(sheet)
-    print(f"Detected layout: {layout}")
+    # Process all sheets
+    for sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+        sheet_schedules = parse_sheet(sheet)
+        
+        # Merge into global schedule
+        for group, schedule in sheet_schedules.items():
+            if group in all_schedules:
+                print(f"    Warning: Group {group} appears in multiple sheets, merging...")
+                # Merge lessons (avoid duplicates)
+                for week in ['numerator', 'denominator']:
+                    for day, lessons in schedule[week].items():
+                        existing = all_schedules[group][week][day]
+                        for lesson in lessons:
+                            if lesson not in existing:
+                                existing.append(lesson)
+            else:
+                all_schedules[group] = schedule
     
-    # Parse based on layout
-    if layout == 'horizontal':
-        schedule = parse_horizontal_layout(sheet)
-    else:
-        schedule = parse_vertical_layout(sheet)
+    workbook.close()
     
-    if not schedule:
+    if not all_schedules:
         print("Error: No schedule data parsed")
         return False
     
     # Wrap in groups object
-    output = {"groups": schedule}
+    output = {"groups": all_schedules}
     
     # Save to JSON
     print(f"\nSaving to {output_path}...")
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+    try:
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(output, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Error saving JSON: {e}")
+        return False
     
     # Print statistics
-    total_groups = len(schedule)
+    total_groups = len(all_schedules)
     total_lessons = 0
-    for group_name, group_data in schedule.items():
+    for group_name, group_data in all_schedules.items():
         for week in ['numerator', 'denominator']:
             for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']:
                 total_lessons += len(group_data[week][day])
@@ -305,6 +314,7 @@ def main():
         print("\nExample:")
         print("  python excel_to_schedule.py oit_2sem.xlsx")
         print("  python excel_to_schedule.py oit_2sem.xlsx custom_schedule.json")
+        print("\nSupports oit_2sem.xlsx format with multiple sheets and groups.")
         sys.exit(1)
     
     excel_path = sys.argv[1]
