@@ -16,6 +16,8 @@ import httpx
 from database import Database
 from core import ScheduleManager
 
+os.makedirs("logs", exist_ok=True)
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -29,16 +31,25 @@ logger = logging.getLogger(__name__)
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 REPLACEMENT_URL = os.getenv("REPLACEMENT_URL", "https://example.com/replacements.html")
 
+http_client: Optional[httpx.AsyncClient] = None
+
 db = Database()
 schedule_manager = ScheduleManager(replacement_url=REPLACEMENT_URL)
 templates = Jinja2Templates(directory="templates")
 
 async def startup():
+    global http_client
     await db.init_db()
+    http_client = httpx.AsyncClient(timeout=10.0)
     logger.info("Database initialized")
 
 async def shutdown():
+    global http_client
     await db.close()
+    await schedule_manager.close()
+    if http_client:
+        await http_client.aclose()
+        http_client = None
     logger.info("Database closed")
 
 async def index(request: Request):
@@ -225,20 +236,22 @@ async def api_headman_post(request: Request):
             
             users = await db.get_users_by_group(group_name)
             sent_count = 0
+            client = http_client
+            if not client:
+                return JSONResponse({"error": "HTTP client not initialized"}, status_code=500)
             
-            async with httpx.AsyncClient() as client:
-                for user in users:
-                    try:
-                        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                        payload = {
-                            "chat_id": user.user_id,
-                            "text": message
-                        }
-                        response = await client.post(url, json=payload)
-                        if response.status_code == 200:
-                            sent_count += 1
-                    except Exception as e:
-                        logger.warning(f"Cannot send to user {user.user_id}: {e}")
+            for user in users:
+                try:
+                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                    payload = {
+                        "chat_id": user.user_id,
+                        "text": message
+                    }
+                    response = await client.post(url, json=payload)
+                    if response.status_code == 200:
+                        sent_count += 1
+                except Exception as e:
+                    logger.warning(f"Cannot send to user {user.user_id}: {e}")
             
             return JSONResponse({"success": True, "sent_count": sent_count})
         

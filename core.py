@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 import httpx
@@ -27,11 +28,19 @@ class ScheduleManager:
         self.schedule_json_path = schedule_json_path
         self.replacement_url = replacement_url or "https://example.com/replacements.html"
         self.base_schedule: Dict[str, Any] = {}
+        self.group_lookup: Dict[str, str] = {}
+        self.groups: List[str] = []
         self.replacements_cache: Dict[str, Any] = {}
+        self.replacements_index: Dict[str, Any] = {}
         self.replacements_cache_time: Optional[datetime] = None
         self.cache_ttl_seconds = 300
+        self._replacement_lock = asyncio.Lock()
+        self._http_client = httpx.AsyncClient(timeout=10.0)
         
         self.load_base_schedule()
+    
+    async def close(self):
+        await self._http_client.aclose()
     
     def load_base_schedule(self):
         try:
@@ -39,6 +48,18 @@ class ScheduleManager:
                 self.base_schedule = json.load(f)
         except FileNotFoundError:
             self.base_schedule = {"groups": {}}
+        self._build_group_lookup()
+    
+    def _build_group_lookup(self):
+        groups = self.base_schedule.get("groups", {})
+        self.group_lookup = {}
+        self.groups = list(groups.keys())
+        for key in groups.keys():
+            normalized_key = self.normalize_group_name(key)
+            self.group_lookup[normalized_key] = key
+            if "/" in key:
+                for part in key.split("/"):
+                    self.group_lookup[self.normalize_group_name(part)] = key
     
     def get_week_parity(self, target_date: Optional[date] = None) -> str:
         if target_date is None:
@@ -50,20 +71,7 @@ class ScheduleManager:
         return re.sub(r"[\s\-]", "", group_name).upper()
     
     def find_group_key(self, user_group: str) -> Optional[str]:
-        normalized_user = self.normalize_group_name(user_group)
-        
-        for key in self.base_schedule.get("groups", {}).keys():
-            normalized_key = self.normalize_group_name(key)
-            if normalized_key == normalized_user:
-                return key
-            
-            if "/" in key:
-                parts = key.split("/")
-                for part in parts:
-                    if self.normalize_group_name(part) == normalized_user:
-                        return key
-        
-        return None
+        return self.group_lookup.get(self.normalize_group_name(user_group))
     
     async def fetch_replacements(self) -> Dict[str, Any]:
         if (
@@ -73,20 +81,32 @@ class ScheduleManager:
         ):
             return self.replacements_cache
         
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(self.replacement_url)
+        async with self._replacement_lock:
+            if (
+                self.replacements_cache
+                and self.replacements_cache_time
+                and (datetime.now() - self.replacements_cache_time).total_seconds() < self.cache_ttl_seconds
+            ):
+                return self.replacements_cache
+            try:
+                response = await self._http_client.get(self.replacement_url)
                 response.raise_for_status()
                 html = response.text
-            
-            replacements = self.parse_replacements_html(html)
-            self.replacements_cache = replacements
-            self.replacements_cache_time = datetime.now()
-            return replacements
-        
-        except Exception as e:
-            print(f"Error fetching replacements: {e}")
-            return {}
+                
+                replacements = self.parse_replacements_html(html)
+                self.replacements_cache = replacements
+                self.replacements_index = self._build_replacements_index(replacements)
+                self.replacements_cache_time = datetime.now()
+                return replacements
+            except Exception as e:
+                print(f"Error fetching replacements: {e}")
+                return {}
+    
+    def _build_replacements_index(self, replacements: Dict[str, Any]) -> Dict[str, Any]:
+        index: Dict[str, Any] = {}
+        for group_name, repl_info in replacements.items():
+            index[self.normalize_group_name(group_name)] = repl_info
+        return index
     
     def parse_replacements_html(self, html: str) -> Dict[str, Any]:
         soup = BeautifulSoup(html, "html.parser")
@@ -162,14 +182,9 @@ class ScheduleManager:
         date_str = target_date.strftime("%d.%m.%Y")
         
         normalized_group = self.normalize_group_name(group_name)
-        replacement_data = None
-        for repl_group, repl_info in replacements.items():
-            if self.normalize_group_name(repl_group) == normalized_group:
-                if repl_info.get("date") == date_str:
-                    replacement_data = repl_info
-                    break
+        replacement_data = self.replacements_index.get(normalized_group)
         
-        if replacement_data:
+        if replacement_data and replacement_data.get("date") == date_str:
             lessons = [Lesson(**lesson_dict) for lesson_dict in replacement_data["lessons"]]
             return DaySchedule(date_str=date_str, lessons=lessons, is_weekend=False)
         
@@ -236,4 +251,4 @@ class ScheduleManager:
         return "\n".join(lines)
     
     def get_all_groups(self) -> List[str]:
-        return list(self.base_schedule.get("groups", {}).keys())
+        return list(self.groups)

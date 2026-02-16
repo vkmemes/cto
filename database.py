@@ -1,9 +1,10 @@
 import os
 from datetime import date, datetime
 from typing import Optional, List
-from sqlalchemy import Column, Integer, String, BigInteger, Date, Boolean, DateTime, Text, select
+from sqlalchemy import Column, Integer, String, BigInteger, Date, Boolean, DateTime, Text, select, update, delete
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.pool import NullPool
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///sttec.db")
 
@@ -61,8 +62,7 @@ class Database:
         self.engine = create_async_engine(
             url,
             echo=False,
-            pool_size=5,
-            max_overflow=10,
+            poolclass=NullPool,
             pool_pre_ping=True
         )
         self.async_session = async_sessionmaker(
@@ -252,10 +252,11 @@ class Database:
     
     async def reset_all_sick_flags(self):
         async with self.async_session() as session:
-            result = await session.execute(select(Student).where(Student.is_sick == True))
-            students = result.scalars().all()
-            for student in students:
-                student.is_sick = False
+            await session.execute(
+                update(Student)
+                .where(Student.is_sick.is_(True))
+                .values(is_sick=False)
+            )
             await session.commit()
     
     async def set_homework(
@@ -288,20 +289,14 @@ class Database:
     
     async def delete_homework(self, homework_id: int):
         async with self.async_session() as session:
-            result = await session.execute(select(Homework).where(Homework.id == homework_id))
-            homework = result.scalar_one_or_none()
-            if homework:
-                await session.delete(homework)
-                await session.commit()
+            await session.execute(delete(Homework).where(Homework.id == homework_id))
+            await session.commit()
     
     async def clear_homework_by_subject(self, group_name: str, subject_name: str):
         async with self.async_session() as session:
-            result = await session.execute(
-                select(Homework)
+            await session.execute(
+                delete(Homework)
                 .where(Homework.group_name == group_name)
                 .where(Homework.subject_name == subject_name)
             )
-            homeworks = result.scalars().all()
-            for hw in homeworks:
-                await session.delete(hw)
             await session.commit()
