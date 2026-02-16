@@ -7,12 +7,6 @@ from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 from bs4 import BeautifulSoup
 
-# Константы URL замен расписания
-REPLACEMENTS_URLS = [
-    "https://menu.sttec.yar.ru/timetable/rasp_first.html",
-    "https://menu.sttec.yar.ru/timetable/rasp_second.html"
-]
-
 STOP_WORDS_CANCEL = ["снято", "отменено", "нет пары"]
 
 class Lesson(BaseModel):
@@ -30,8 +24,9 @@ class DaySchedule(BaseModel):
     is_weekend: bool = False
 
 class ScheduleManager:
-    def __init__(self, schedule_json_path: str = "schedule.json"):
+    def __init__(self, schedule_json_path: str = "schedule.json", replacement_url: Optional[str] = None):
         self.schedule_json_path = schedule_json_path
+        self.replacement_url = replacement_url or "https://example.com/replacements.html"
         self.base_schedule: Dict[str, Any] = {}
         self.group_lookup: Dict[str, str] = {}
         self.groups: List[str] = []
@@ -93,25 +88,16 @@ class ScheduleManager:
                 and (datetime.now() - self.replacements_cache_time).total_seconds() < self.cache_ttl_seconds
             ):
                 return self.replacements_cache
-            
             try:
-                all_replacements = {}
-                for url in REPLACEMENTS_URLS:
-                    try:
-                        response = await self._http_client.get(url)
-                        response.raise_for_status()
-                        html = response.text
-                        
-                        replacements = self.parse_replacements_html(html)
-                        all_replacements.update(replacements)
-                    except Exception as e:
-                        print(f"Error fetching replacements from {url}: {e}")
-                        continue
+                response = await self._http_client.get(self.replacement_url)
+                response.raise_for_status()
+                html = response.text
                 
-                self.replacements_cache = all_replacements
-                self.replacements_index = self._build_replacements_index(all_replacements)
+                replacements = self.parse_replacements_html(html)
+                self.replacements_cache = replacements
+                self.replacements_index = self._build_replacements_index(replacements)
                 self.replacements_cache_time = datetime.now()
-                return all_replacements
+                return replacements
             except Exception as e:
                 print(f"Error fetching replacements: {e}")
                 return {}

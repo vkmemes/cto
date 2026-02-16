@@ -152,6 +152,10 @@ python web_main.py
 
 ### Продакшн (systemd)
 
+> 📚 **Документация по деплою:**
+> - [DEPLOYMENT_CLOUDPUB.md](DEPLOYMENT_CLOUDPUB.md) - Деплой через Cloudflare Tunnel (свой домен)
+> - [DEPLOYMENT_ALTERNATIVES.md](DEPLOYMENT_ALTERNATIVES.md) - Бесплатные альтернативы без привязки карты
+
 **Создайте файл `/etc/systemd/system/sttec-bot.service`:**
 
 ```ini

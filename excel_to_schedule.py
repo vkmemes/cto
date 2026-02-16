@@ -34,26 +34,26 @@ def clean_text(text) -> str:
 
 def parse_group_header(cell_text: str) -> List[str]:
     """
-    Parse group header into list of groups.
-    If header contains '/', treat it as a single combined group name.
+    Parse group header like 'ИС1-11/ИС1-12' into list of groups.
+    Returns list of individual group names.
     """
     text = clean_text(cell_text)
     if not text:
         return []
-
-    if '/' in text or '\\' in text:
-        groups = [text]
-    else:
-        groups = re.split(r'[,;|]+', text)
-
+    
+    # Split by common separators
+    groups = re.split(r'[/\\,;|]+', text)
     groups = [g.strip() for g in groups if g.strip()]
-
+    
+    # Normalize group names
     normalized = []
     for group in groups:
+        # Remove extra spaces
         group = re.sub(r'\s+', ' ', group)
+        # Ensure pattern like ИС1-11
         group = re.sub(r'([А-ЯA-Z]+)\s*(\d)', r'\1\2', group)
         normalized.append(group)
-
+    
     return normalized
 
 
@@ -235,25 +235,35 @@ def parse_sheet(sheet) -> Dict[str, Dict[str, Any]]:
     return schedules
 
 
-def parse_excel_file(excel_path: Path) -> Dict[str, Any]:
-    """Parse a single Excel file into schedule data."""
+def convert_excel_to_json(excel_path: str, output_path: str = 'schedule.json') -> bool:
+    """
+    Convert Excel file to schedule.json.
+    
+    Args:
+        excel_path: Path to Excel file
+        output_path: Path to output JSON file
+    """
     print(f"Reading Excel file: {excel_path}")
-
+    
     try:
+        # Use read_only for memory efficiency (good for 8GB RAM)
         workbook = openpyxl.load_workbook(excel_path, data_only=True, read_only=False)
     except Exception as e:
-        print(f"Error loading Excel file {excel_path}: {e}")
-        return {}
-
-    all_schedules: Dict[str, Any] = {}
-
+        print(f"Error loading Excel file: {e}")
+        return False
+    
+    all_schedules = {}
+    
+    # Process all sheets
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
         sheet_schedules = parse_sheet(sheet)
-
+        
+        # Merge into global schedule
         for group, schedule in sheet_schedules.items():
             if group in all_schedules:
                 print(f"    Warning: Group {group} appears in multiple sheets, merging...")
+                # Merge lessons (avoid duplicates)
                 for week in ['numerator', 'denominator']:
                     for day, lessons in schedule[week].items():
                         existing = all_schedules[group][week][day]
@@ -262,60 +272,17 @@ def parse_excel_file(excel_path: Path) -> Dict[str, Any]:
                                 existing.append(lesson)
             else:
                 all_schedules[group] = schedule
-
+    
     workbook.close()
-    return all_schedules
-
-
-def collect_excel_files(source_path: Path) -> List[Path]:
-    """Collect Excel files from a file or directory."""
-    if source_path.is_file():
-        return [source_path]
-
-    excel_files: List[Path] = []
-    for extension in ("*.xlsx", "*.xlsm", "*.xls"):
-        excel_files.extend(sorted(source_path.glob(extension)))
-
-    return excel_files
-
-
-def convert_excel_to_json(excel_path: str, output_path: str = 'schedule.json') -> bool:
-    """
-    Convert Excel file or directory of Excel files to schedule.json.
-
-    Args:
-        excel_path: Path to Excel file or directory with Excel files
-        output_path: Path to output JSON file
-    """
-    source_path = Path(excel_path)
-    excel_files = collect_excel_files(source_path)
-
-    if not excel_files:
-        print(f"Error: No Excel files found in {excel_path}")
-        return False
-
-    all_schedules: Dict[str, Any] = {}
-
-    for file_path in excel_files:
-        file_schedules = parse_excel_file(file_path)
-        for group, schedule in file_schedules.items():
-            if group in all_schedules:
-                print(f"    Warning: Group {group} appears in multiple files, merging...")
-                for week in ['numerator', 'denominator']:
-                    for day, lessons in schedule[week].items():
-                        existing = all_schedules[group][week][day]
-                        for lesson in lessons:
-                            if lesson not in existing:
-                                existing.append(lesson)
-            else:
-                all_schedules[group] = schedule
-
+    
     if not all_schedules:
         print("Error: No schedule data parsed")
         return False
-
+    
+    # Wrap in groups object
     output = {"groups": all_schedules}
-
+    
+    # Save to JSON
     print(f"\nSaving to {output_path}...")
     try:
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -323,39 +290,40 @@ def convert_excel_to_json(excel_path: str, output_path: str = 'schedule.json') -
     except Exception as e:
         print(f"Error saving JSON: {e}")
         return False
-
+    
+    # Print statistics
     total_groups = len(all_schedules)
     total_lessons = 0
-    for group_data in all_schedules.values():
+    for group_name, group_data in all_schedules.items():
         for week in ['numerator', 'denominator']:
             for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']:
                 total_lessons += len(group_data[week][day])
-
+    
     print(f"\n✅ Conversion complete!")
     print(f"   Groups: {total_groups}")
     print(f"   Total lessons: {total_lessons}")
     print(f"   Output: {output_path}")
-
+    
     return True
 
 
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python excel_to_schedule.py <excel_file_or_directory> [output.json]")
+        print("Usage: python excel_to_schedule.py <excel_file> [output.json]")
         print("\nExample:")
         print("  python excel_to_schedule.py oit_2sem.xlsx")
-        print("  python excel_to_schedule.py schedules/ custom_schedule.json")
+        print("  python excel_to_schedule.py oit_2sem.xlsx custom_schedule.json")
         print("\nSupports oit_2sem.xlsx format with multiple sheets and groups.")
         sys.exit(1)
-
+    
     excel_path = sys.argv[1]
     output_path = sys.argv[2] if len(sys.argv) > 2 else 'schedule.json'
-
+    
     if not Path(excel_path).exists():
-        print(f"Error: Path not found: {excel_path}")
+        print(f"Error: File not found: {excel_path}")
         sys.exit(1)
-
+    
     success = convert_excel_to_json(excel_path, output_path)
     sys.exit(0 if success else 1)
 
