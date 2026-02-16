@@ -1,10 +1,10 @@
-# Деплой STTEC Schedule через SSH с туннелированием CloudPub
+# Деплой STTEC Schedule через SSH с туннелированием Cloudflare Tunnel
 
 ## 📋 Общая схема
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   GitHub    │────▶│  Ваш ПК     │────▶│  CloudPub   │────▶│ Локальный   │
+│   GitHub    │────▶│  Ваш ПК     │────▶│ Cloudflare  │────▶│ Локальный   │
 │  (код)      │     │  (деплой)   │     │  (туннель)  │     │   сервер    │
 └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
                            │                                              │
@@ -18,49 +18,144 @@
 
 ## 🔧 Подготовка
 
-### 1. Установка CloudPub на локальном сервере
+### 1. Установка Cloudflare Tunnel на локальном сервере
 
 На вашем локальном сервере (например, домашний ПК или Raspberry Pi):
 
 ```bash
-# Скачать CloudPub клиент
-curl -s https://cloudpub.dev/install.sh | bash
+# Скачать и установить cloudflared (официальный клиент Cloudflare)
 
-# Или вручную:
-wget https://cloudpub.dev/download/cloudpub-linux-amd64.tar.gz
-tar -xzf cloudpub-linux-amd64.tar.gz
-sudo mv cloudpub /usr/local/bin/
+# Для Debian/Ubuntu:
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+
+# Для Raspberry Pi (ARM):
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+sudo dpkg -i cloudflared-linux-arm64.deb
+
+# Или через скачивание бинарника:
+# wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+# chmod +x cloudflared-linux-amd64
+# sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
 ```
 
-### 2. Регистрация туннеля в CloudPub
+### 2. Аутентификация в Cloudflare
 
 ```bash
-# Регистрация (требуется токен из личного кабинета CloudPub)
-cloudpub auth --token YOUR_CLOUDPUB_TOKEN
+# Логин в Cloudflare (откроет браузер для авторизации)
+cloudflared tunnel login
 
-# Создание туннеля для SSH
-cloudpub tunnel create --name sttec-ssh --proto tcp --port 22
-
-# Получите выходной адрес, например:
-# tcp://abc123.cloudpub.dev:12345
+# После авторизации будет создан сертификат:
+# ~/.cloudflared/cert.pem
+# Сохраните его — он понадобится для управления туннелями
 ```
 
-### 3. Настройка SSH для подключения через туннель
+**Требования:**
+- Аккаунт Cloudflare (бесплатный)
+- Домен, делегированный на Cloudflare (DNS записи)
+
+### 3. Создание туннеля для SSH
+
+```bash
+# Создание туннеля (замените sttec-ssh на любое имя)
+cloudflared tunnel create sttec-ssh
+
+# Получите Tunnel ID (UUID), например:
+# Tunnel credentials written to /home/user/.cloudflared/<UUID>.json
+# Your tunnel credentials will be located in:
+# /home/user/.cloudflared/<UUID>.json
+
+# Сохраните UUID — он понадобится для настройки
+```
+
+### 4. Настройка конфигурации туннеля
+
+Создайте файл `~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: <YOUR_TUNNEL_UUID>
+credentials-file: /home/user/.cloudflared/<YOUR_TUNNEL_UUID>.json
+
+# SSH доступ через туннель
+ingress:
+  # SSH на порт 22
+  - hostname: ssh.yourdomain.com
+    service: ssh://localhost:22
+  
+  # Веб-интерфейс (опционально)
+  - hostname: sttec.yourdomain.com
+    service: http://localhost:8000
+  
+  # Fallback
+  - service: http_status:404
+```
+
+Замените:
+- `<YOUR_TUNNEL_UUID>` — UUID из шага 3
+- `ssh.yourdomain.com` — ваш поддомен для SSH
+- `sttec.yourdomain.com` — ваш поддомен для веб
+
+### 5. Настройка DNS записей в Cloudflare
+
+```bash
+# Автоматическое создание DNS записей
+cloudflared tunnel route dns sttec-ssh ssh.yourdomain.com
+cloudflared tunnel route dns sttec-ssh sttec.yourdomain.com
+
+# Или вручную в панели Cloudflare:
+# Тип: CNAME
+# Имя: ssh
+# Цель: <UUID>.cfargotunnel.com
+# 
+# Тип: CNAME
+# Имя: sttec
+# Цель: <UUID>.cfargotunnel.com
+```
+
+### 6. Запуск туннеля как службы
+
+```bash
+# Установка службы systemd
+sudo cloudflared service install
+sudo systemctl enable cloudflared
+sudo systemctl start cloudflared
+
+# Проверка статуса
+sudo systemctl status cloudflared
+cloudflared tunnel info sttec-ssh
+```
+
+### 7. Настройка SSH для подключения через туннель
 
 На вашей локальной машине (с которой будете деплоить):
 
 ```bash
-# Добавьте в ~/.ssh/config
+# Установка cloudflared на клиентскую машину
+# macOS:
+brew install cloudflared
+
+# Linux:
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+chmod +x cloudflared-linux-amd64
+sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
+
+# Windows:
+# Скачайте .exe с GitHub релизов
+```
+
+Добавьте в `~/.ssh/config`:
+
+```
 Host sttec-local
-    HostName abc123.cloudpub.dev
-    Port 12345
+    HostName ssh.yourdomain.com
     User sttec
     IdentityFile ~/.ssh/sttec_deploy_key
+    ProxyCommand cloudflared access ssh --hostname %h
     ServerAliveInterval 60
     ServerAliveCountMax 3
 ```
 
-### 4. Генерация SSH ключей для деплоя
+### 8. Генерация SSH ключей для деплоя
 
 На локальном сервере:
 
@@ -175,10 +270,11 @@ echo -e "${YELLOW}🚀 Начало деплоя STTEC Schedule...${NC}"
 # Проверка доступности сервера
 echo -e "${YELLOW}📡 Проверка подключения...${NC}"
 if ! ssh $REMOTE_HOST "echo 'OK'" > /dev/null 2>&1; then
-    echo -e "${RED}❌ Ошибка: Не удалось подключиться к серверу через CloudPub${NC}"
+    echo -e "${RED}❌ Ошибка: Не удалось подключиться к серверу через Cloudflare Tunnel${NC}"
+    echo -e "${RED}   Убедитесь, что туннель активен: cloudflared tunnel info sttec-ssh${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ Сервер доступен${NC}"
+echo -e "${GREEN}✅ Сервер доступен через туннель${NC}"
 
 # Проверка изменений в Git
 if [ -n "$(git status --porcelain)" ]; then
@@ -334,26 +430,51 @@ ssh sttec-local << 'EOF'
 EOF
 ```
 
-## 🌐 Настройка CloudPub для веб-доступа
+## 🌐 Настройка веб-доступа через Cloudflare Tunnel
 
-Если нужен доступ к веб-интерфейсу извне:
+Если в `config.yml` настроен веб-ингресс, ваше приложение будет доступно по:
 
-```bash
-# На локальном сервере
-cloudpub tunnel create --name sttec-web --proto http --port 8000
-
-# Получите адрес, например:
-# https://sttec-web.cloudpub.dev
+```
+https://sttec.yourdomain.com
 ```
 
-Или используйте свой домен:
+**Бесплатные возможности Cloudflare:**
+- HTTPS с автоматическими сертификатами
+- DDoS защита
+- CDN кэширование (для статики)
+- WAF (Web Application Firewall)
+- Analytics
 
-```bash
-cloudpub tunnel create \
-    --name sttec-custom \
-    --proto http \
-    --port 8000 \
-    --domain schedule.yourdomain.com
+### Дополнительная настройка в config.yml
+
+```yaml
+tunnel: <YOUR_TUNNEL_UUID>
+credentials-file: /home/user/.cloudflared/<YOUR_TUNNEL_UUID>.json
+
+# Настройки туннеля
+transport-loglevel: info
+
+ingress:
+  # SSH доступ
+  - hostname: ssh.yourdomain.com
+    service: ssh://localhost:22
+  
+  # Веб с оптимизациями
+  - hostname: sttec.yourdomain.com
+    service: http://localhost:8000
+    originRequest:
+      connectTimeout: 30s
+      tlsDisableVerify: true
+      httpHostHeader: sttec.yourdomain.com
+      noTLSVerify: true
+  
+  # API отдельно (если нужно)
+  - hostname: api.yourdomain.com
+    service: http://localhost:8000
+    path: /api/*
+  
+  # Fallback
+  - service: http_status:404
 ```
 
 ## 🔄 Автоматический деплой через GitHub Actions
@@ -374,17 +495,24 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup SSH
+    - name: Setup SSH with Cloudflare Tunnel
       run: |
+        # Установка cloudflared
+        wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+        chmod +x cloudflared-linux-amd64
+        sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
+        
+        # Настройка SSH
         mkdir -p ~/.ssh
         echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
         chmod 600 ~/.ssh/deploy_key
+        
         cat >> ~/.ssh/config << EOF
         Host sttec-server
-            HostName ${{ secrets.CLOUDPUB_HOST }}
-            Port ${{ secrets.CLOUDPUB_PORT }}
+            HostName ${{ secrets.CF_SSH_HOSTNAME }}
             User ${{ secrets.SSH_USER }}
             IdentityFile ~/.ssh/deploy_key
+            ProxyCommand cloudflared access ssh --hostname %h
             StrictHostKeyChecking no
         EOF
     
@@ -418,15 +546,16 @@ jobs:
     - name: Health Check
       run: |
         sleep 5
-        ssh sttec-server "curl -s http://localhost:8000/ | grep -q 'STTEC'" \
+        # Проверка через публичный URL
+        curl -s "https://${{ secrets.CF_WEB_HOSTNAME }}/" | grep -q 'STTEC' \
           && echo "✅ Deployment successful" \
           || (echo "❌ Health check failed" && exit 1)
 ```
 
 Добавьте секреты в GitHub Settings → Secrets:
 - `SSH_PRIVATE_KEY` — приватный ключ от сервера
-- `CLOUDPUB_HOST` — хост из CloudPub (например, `abc123.cloudpub.dev`)
-- `CLOUDPUB_PORT` — порт из CloudPub (например, `12345`)
+- `CF_SSH_HOSTNAME` — SSH хостнейм (например, `ssh.yourdomain.com`)
+- `CF_WEB_HOSTNAME` — Веб хостнейм (например, `sttec.yourdomain.com`)
 - `SSH_USER` — имя пользователя (например, `sttec`)
 
 ## 📊 Мониторинг деплоя
@@ -439,6 +568,9 @@ ssh sttec-local "sudo journalctl -u sttec-bot -f -n 50"
 
 # Логи веб-сервера
 ssh sttec-local "sudo journalctl -u sttec-web -f -n 50"
+
+# Логи туннеля
+ssh sttec-local "sudo journalctl -u cloudflared -f -n 50"
 
 # Логи приложения
 ssh sttec-local "tail -f /opt/sttec/logs/bot.log"
@@ -460,6 +592,12 @@ ssh sttec-local << 'EOF'
     sudo systemctl status sttec-bot --no-pager -l
     echo ""
     sudo systemctl status sttec-web --no-pager -l
+    echo ""
+    sudo systemctl status cloudflared --no-pager -l
+    
+    echo ""
+    echo "🌐 Информация о туннеле:"
+    cloudflared tunnel info sttec-ssh 2>/dev/null || echo "Не удалось получить информацию"
     
     echo ""
     echo "💾 Использование ресурсов:"
@@ -486,20 +624,50 @@ EOF
 
 ## 🐛 Отладка подключения
 
-### Проблема: Не подключается через CloudPub
+### Проблема: Не подключается через туннель
 
 ```bash
-# Проверка статуса туннеля
-cloudpub status
+# Проверка статуса туннеля на сервере
+ssh sttec-local "cloudflared tunnel info sttec-ssh"
+
+# Проверка логов туннеля
+ssh sttec-local "sudo journalctl -u cloudflared -n 100"
 
 # Перезапуск туннеля
-cloudpub tunnel restart sttec-ssh
+ssh sttec-local "sudo systemctl restart cloudflared"
 
-# Проверка сети на сервере
-ssh sttec-local "ping -c 3 8.8.8.8"
+# Проверка конфигурации
+ssh sttec-local "cloudflared tunnel ingress validate ~/.cloudflared/config.yml"
+```
 
-# Проверка SSH демона
-ssh sttec-local "sudo systemctl status ssh"
+### Проблема: cloudflared не найден на клиенте
+
+```bash
+# macOS
+brew install cloudflared
+
+# Linux
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+chmod +x cloudflared-linux-amd64
+sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
+
+# Проверка
+which cloudflared
+cloudflared --version
+```
+
+### Проблема: Ошибка аутентификации
+
+```bash
+# Повторная авторизация
+cloudflared tunnel login
+
+# Проверка сертификата
+ls -la ~/.cloudflared/cert.pem
+
+# Если нужно — пересоздание туннеля
+cloudflared tunnel delete sttec-ssh
+cloudflared tunnel create sttec-ssh
 ```
 
 ### Проблема: Медленное подключение
@@ -526,7 +694,11 @@ Host sttec-local
 
 ## 📝 Чек-лист деплоя
 
-- [ ] CloudPub туннель настроен и активен
+- [ ] Аккаунт Cloudflare создан и домен добавлен
+- [ ] DNS записи делегированы на Cloudflare
+- [ ] Cloudflare Tunnel создан и настроен
+- [ ] DNS записи CNAME созданы (ssh.yourdomain.com, sttec.yourdomain.com)
+- [ ] Туннель запущен как служба (systemd)
 - [ ] SSH ключи сгенерированы и настроены
 - [ ] Пользователь `sttec` создан на сервере
 - [ ] Директория `/opt/sttec` создана
@@ -535,8 +707,8 @@ Host sttec-local
 - [ ] Зависимости установлены (`requirements.txt`)
 - [ ] Файл `.env` настроен
 - [ ] База данных инициализирована (`migrate.py`)
-- [ ] Systemd сервисы установлены и запущены
-- [ ] Веб-интерфейс доступен
+- [ ] Systemd сервисы sttec-bot и sttec-web установлены и запущены
+- [ ] Веб-интерфейс доступен по HTTPS
 - [ ] Бот отвечает на команды
 - [ ] Логи пишутся корректно
 
@@ -549,7 +721,7 @@ cd sttec-schedule
 
 # 2. Настройка SSH config (один раз)
 nano ~/.ssh/config
-# (добавить конфигурацию из раздела 3)
+# (добавить конфигурацию из раздела 7)
 
 # 3. Проверка подключения
 ssh sttec-local "uname -a"
@@ -592,4 +764,4 @@ ssh sttec-local "sudo systemctl status sttec-bot sttec-web"
 ---
 
 **Документация создана:** February 2026  
-**Требования:** CloudPub аккаунт, SSH доступ, Linux сервер
+**Требования:** Аккаунт Cloudflare (бесплатный), домен, делегированный на Cloudflare, Linux сервер
