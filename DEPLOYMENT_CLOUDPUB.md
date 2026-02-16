@@ -1,5 +1,7 @@
 # Деплой STTEC Schedule через SSH с туннелированием Cloudflare Tunnel
 
+> 💡 **Нужен бесплатный доступ без привязки карты?** Смотрите [DEPLOYMENT_ALTERNATIVES.md](DEPLOYMENT_ALTERNATIVES.md) для бесплатных альтернатив: LocalTunnel, ngrok, serveo.net, SSH tunnels и других решений.
+
 ## 📋 Общая схема
 
 ```

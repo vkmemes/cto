@@ -378,6 +378,13 @@ cp sttec.db.backup sttec.db
 - [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
 - [Telegram Bot API](https://core.telegram.org/bots/api)
 
+## 🌐 Деплой и публичный доступ
+
+Для развертывания системы в интернете:
+
+- [DEPLOYMENT_CLOUDPUB.md](DEPLOYMENT_CLOUDPUB.md) - Деплой через Cloudflare Tunnel (свой домен)
+- [DEPLOYMENT_ALTERNATIVES.md](DEPLOYMENT_ALTERNATIVES.md) - Бесплатные альтернативы без привязки карты (LocalTunnel, ngrok, SSH tunnels и др.)
+
 ## ✅ Готово!
 
 Ваша система STTEC Schedule должна быть запущена и готова к использованию!
