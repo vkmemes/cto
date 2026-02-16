@@ -11,7 +11,8 @@ from telegram.ext import (
     ConversationHandler,
     MessageHandler,
     filters,
-    ContextTypes
+    ContextTypes,
+    JobQueue
 )
 from telegram.error import Forbidden, BadRequest
 
@@ -339,7 +340,7 @@ async def job_reset_sick(context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Error in job_reset_sick: {e}")
 
 def main():
-    application = Application.builder().token(BOT_TOKEN).build()
+    application = Application.builder().token(BOT_TOKEN).job_queue(JobQueue()).build()
     
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
