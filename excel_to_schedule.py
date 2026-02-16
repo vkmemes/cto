@@ -1,15 +1,25 @@
 #!/usr/bin/env python3
 """
-Excel to schedule.json converter - OIT 2nd Semester Edition
-Converts Excel schedule from STTEC format to JSON format for STTEC Schedule system.
+Excel to schedule.json converter - STTEC Schedule Edition
+Converts Excel schedules from STTEC format to JSON format for STTEC Schedule system.
 
-Excel format (oit_2sem.xlsx):
+Features:
+- Auto-detects and processes all .xlsx files in script directory
+- Merges data from multiple files into single schedule.json
+- Supports multiple sheets per file
+- Multiple groups per sheet
+
+Excel format:
 - Multiple sheets (one per course/specialty)
 - Multiple groups per sheet
 - Row structure: [Pair#] [Subject] ... [Teacher] ... [Room]
 - No numerator/denominator separation
 
-Optimized for 8GB RAM - processes file efficiently.
+Usage:
+  python excel_to_schedule.py              # Auto-detect all .xlsx files
+  python excel_to_schedule.py file.xlsx    # Process specific file
+
+Optimized for 8GB RAM - processes files efficiently.
 """
 
 import json
@@ -235,30 +245,28 @@ def parse_sheet(sheet) -> Dict[str, Dict[str, Any]]:
     return schedules
 
 
-def convert_excel_to_json(excel_path: str, output_path: str = 'schedule.json') -> bool:
+def convert_excel_to_json(excel_path: str, all_schedules: Dict[str, Dict[str, Any]]) -> bool:
     """
-    Convert Excel file to schedule.json.
-    
+    Convert Excel file and merge into existing schedule.
+
     Args:
         excel_path: Path to Excel file
-        output_path: Path to output JSON file
+        all_schedules: Dictionary to merge parsed data into
     """
     print(f"Reading Excel file: {excel_path}")
-    
+
     try:
         # Use read_only for memory efficiency (good for 8GB RAM)
         workbook = openpyxl.load_workbook(excel_path, data_only=True, read_only=False)
     except Exception as e:
         print(f"Error loading Excel file: {e}")
         return False
-    
-    all_schedules = {}
-    
+
     # Process all sheets
     for sheet_name in workbook.sheetnames:
         sheet = workbook[sheet_name]
         sheet_schedules = parse_sheet(sheet)
-        
+
         # Merge into global schedule
         for group, schedule in sheet_schedules.items():
             if group in all_schedules:
@@ -272,16 +280,27 @@ def convert_excel_to_json(excel_path: str, output_path: str = 'schedule.json') -
                                 existing.append(lesson)
             else:
                 all_schedules[group] = schedule
-    
+
     workbook.close()
-    
+
+    return True
+
+
+def save_schedule_to_json(all_schedules: Dict[str, Dict[str, Any]], output_path: str = 'schedule.json') -> bool:
+    """
+    Save merged schedule to JSON file.
+
+    Args:
+        all_schedules: Complete schedule data
+        output_path: Path to output JSON file
+    """
     if not all_schedules:
-        print("Error: No schedule data parsed")
+        print("Error: No schedule data to save")
         return False
-    
+
     # Wrap in groups object
     output = {"groups": all_schedules}
-    
+
     # Save to JSON
     print(f"\nSaving to {output_path}...")
     try:
@@ -290,7 +309,7 @@ def convert_excel_to_json(excel_path: str, output_path: str = 'schedule.json') -
     except Exception as e:
         print(f"Error saving JSON: {e}")
         return False
-    
+
     # Print statistics
     total_groups = len(all_schedules)
     total_lessons = 0
@@ -298,34 +317,75 @@ def convert_excel_to_json(excel_path: str, output_path: str = 'schedule.json') -
         for week in ['numerator', 'denominator']:
             for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']:
                 total_lessons += len(group_data[week][day])
-    
+
     print(f"\n✅ Conversion complete!")
     print(f"   Groups: {total_groups}")
     print(f"   Total lessons: {total_lessons}")
     print(f"   Output: {output_path}")
-    
+
     return True
 
 
 def main():
     """Main entry point."""
-    if len(sys.argv) < 2:
-        print("Usage: python excel_to_schedule.py <excel_file> [output.json]")
-        print("\nExample:")
-        print("  python excel_to_schedule.py oit_2sem.xlsx")
-        print("  python excel_to_schedule.py oit_2sem.xlsx custom_schedule.json")
-        print("\nSupports oit_2sem.xlsx format with multiple sheets and groups.")
+    # Get script directory
+    script_dir = Path(__file__).parent
+
+    # Check if specific file was provided
+    if len(sys.argv) >= 2:
+        excel_path = sys.argv[1]
+        output_path = sys.argv[2] if len(sys.argv) > 2 else 'schedule.json'
+
+        if not Path(excel_path).exists():
+            print(f"Error: File not found: {excel_path}")
+            sys.exit(1)
+
+        # Single file mode
+        all_schedules = {}
+        success = convert_excel_to_json(excel_path, all_schedules)
+        if success:
+            save_schedule_to_json(all_schedules, output_path)
+        sys.exit(0 if success else 1)
+
+    # Auto-detect all Excel files in script directory
+    print("Auto-detecting Excel files in script directory...\n")
+
+    excel_files = sorted(script_dir.glob('*.xlsx'))
+
+    if not excel_files:
+        print("Error: No Excel files found in script directory")
         sys.exit(1)
-    
-    excel_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else 'schedule.json'
-    
-    if not Path(excel_path).exists():
-        print(f"Error: File not found: {excel_path}")
+
+    print(f"Found {len(excel_files)} Excel file(s):")
+    for f in excel_files:
+        print(f"  - {f.name}")
+    print()
+
+    # Process all files
+    all_schedules = {}
+    processed_count = 0
+
+    for excel_file in excel_files:
+        print(f"\n{'='*60}")
+        print(f"Processing: {excel_file.name}")
+        print('='*60)
+        if convert_excel_to_json(str(excel_file), all_schedules):
+            processed_count += 1
+            print(f"✓ Successfully processed {excel_file.name}")
+        else:
+            print(f"✗ Failed to process {excel_file.name}")
+
+    # Save merged schedule
+    if processed_count > 0:
+        output_path = 'schedule.json'
+        print(f"\n{'='*60}")
+        print(f"Saving merged schedule from {processed_count} file(s)...")
+        print('='*60)
+        save_schedule_to_json(all_schedules, output_path)
+        sys.exit(0)
+    else:
+        print("Error: No files were successfully processed")
         sys.exit(1)
-    
-    success = convert_excel_to_json(excel_path, output_path)
-    sys.exit(0 if success else 1)
 
 
 if __name__ == "__main__":
