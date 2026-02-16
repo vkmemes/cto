@@ -30,7 +30,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+BOT_TOKEN = "8195041032:AAGvHDGKzOnLYCL-TksT63znzieji9cRvdk"
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME", "@sttec_channel")
 REPLACEMENT_URL = os.getenv("REPLACEMENT_URL", "https://example.com/replacements.html")
 
