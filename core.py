@@ -57,9 +57,50 @@ class ScheduleManager:
         for key in groups.keys():
             normalized_key = self.normalize_group_name(key)
             self.group_lookup[normalized_key] = key
-            if "/" in key:
-                for part in key.split("/"):
-                    self.group_lookup[self.normalize_group_name(part)] = key
+
+    def search_groups(self, partial_name: str, limit: int = 20) -> List[str]:
+        """Search groups by partial name (case-insensitive substring match)."""
+        if not partial_name or len(partial_name.strip()) == 0:
+            return []
+
+        normalized_partial = self.normalize_group_name(partial_name)
+        matches = []
+
+        # First pass: exact match after normalization
+        for group in self.groups:
+            normalized_group = self.normalize_group_name(group)
+            if normalized_group == normalized_partial:
+                matches.append(group)
+
+        # Second pass: starts with the search term (normalized)
+        for group in self.groups:
+            if group in matches:
+                continue
+            normalized_group = self.normalize_group_name(group)
+            if normalized_group.startswith(normalized_partial):
+                matches.append(group)
+
+        # Third pass: contains the search term (normalized)
+        for group in self.groups:
+            if group in matches:
+                continue
+            normalized_group = self.normalize_group_name(group)
+            if normalized_partial in normalized_group:
+                matches.append(group)
+
+        # Fourth pass: original name contains partial (for non-normalized matching)
+        lower_partial = partial_name.lower()
+        for group in self.groups:
+            if group in matches:
+                continue
+            if lower_partial in group.lower():
+                matches.append(group)
+
+        return matches[:limit]
+
+    def suggest_groups(self, partial_name: str, limit: int = 10) -> List[str]:
+        """Get group suggestions for autocomplete."""
+        return self.search_groups(partial_name, limit)
     
     def get_week_parity(self, target_date: Optional[date] = None) -> str:
         if target_date is None:
