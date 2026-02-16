@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Headman Panel - STTEC</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-4">
+            <h1 class="text-3xl font-bold text-center mb-6">👨‍🎓 Панель старосты</h1>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Группа:</label>
+                <input 
+                    type="text" 
+                    id="groupInput" 
+                    placeholder="Название группы" 
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">PIN-код:</label>
+                <input 
+                    type="password" 
+                    id="pinInput" 
+                    placeholder="Введите PIN" 
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            
+            <button 
+                onclick="loadData()" 
+                class="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition mb-6"
+            >
+                📋 Загрузить данные
+            </button>
+            
+            <div id="dataContainer"></div>
+            
+            <div class="mt-6 border-t pt-6">
+                <h2 class="text-xl font-bold mb-4">📢 Отправить сообщение группе</h2>
+                <textarea 
+                    id="messageInput" 
+                    rows="4" 
+                    placeholder="Введите сообщение..."
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                ></textarea>
+                <button 
+                    onclick="sendMessage()" 
+                    class="w-full bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
+                >
+                    📨 Отправить
+                </button>
+            </div>
+            
+            <div id="statusMessage" class="mt-4 text-center"></div>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+
+        let studentsData = [];
+
+        async function loadData() {
+            const group = document.getElementById('groupInput').value.trim();
+            const pin = document.getElementById('pinInput').value.trim();
+
+            if (!group || !pin) {
+                showStatus('❌ Введите группу и PIN', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/headman?group=${encodeURIComponent(group)}&pin=${encodeURIComponent(pin)}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    studentsData = data.students;
+                    displayData(data);
+                    
+                    localStorage.setItem('headman_group', group);
+                    localStorage.setItem('headman_pin', pin);
+                } else {
+                    showStatus('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Ошибка сети: ' + error.message, 'error');
+            }
+        }
+
+        function displayData(data) {
+            const container = document.getElementById('dataContainer');
+            
+            let html = '<div class="space-y-6">';
+            
+            html += '<div class="border rounded-lg p-4 bg-blue-50">';
+            html += '<h3 class="font-bold text-lg mb-3">👥 Список студентов</h3>';
+            html += '<div class="space-y-2">';
+            
+            data.students.forEach(student => {
+                const isOnDuty = student.user_id === data.current_duty_id;
+                const bgColor = isOnDuty ? 'bg-yellow-100' : 'bg-white';
+                const badge = student.is_headman ? '<span class="text-xs bg-purple-500 text-white px-2 py-1 rounded ml-2">Староста</span>' : '';
+                const sickBadge = student.is_sick ? '<span class="text-xs bg-red-500 text-white px-2 py-1 rounded ml-2">Болен</span>' : '';
+                const dutyBadge = isOnDuty ? '<span class="text-xs bg-yellow-500 text-white px-2 py-1 rounded ml-2">Дежурный</span>' : '';
+                
+                html += `
+                    <div class="${bgColor} p-3 rounded border">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-medium">${student.full_name}</span>
+                                ${badge}
+                                ${sickBadge}
+                                ${dutyBadge}
+                            </div>
+                            <div class="flex gap-2">
+                                <button 
+                                    onclick="setDuty(${student.user_id})" 
+                                    class="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                                    title="Назначить дежурным"
+                                >
+                                    📌
+                                </button>
+                                <button 
+                                    onclick="toggleSick(${student.user_id}, ${!student.is_sick})" 
+                                    class="text-xs ${student.is_sick ? 'bg-green-500' : 'bg-red-500'} text-white px-3 py-1 rounded hover:opacity-80"
+                                    title="${student.is_sick ? 'Отметить здоровым' : 'Отметить больным'}"
+                                >
+                                    ${student.is_sick ? '✅' : '🤒'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            html += '</div>';
+            
+            html += '<div class="border rounded-lg p-4 bg-green-50">';
+            html += '<h3 class="font-bold text-lg mb-2">📊 Статистика</h3>';
+            html += `<p>Всего студентов: ${data.students.length}</p>`;
+            html += `<p>Больных: ${data.students.filter(s => s.is_sick).length}</p>`;
+            html += `<p>Уведомления: ${data.notify_enabled ? '✅ Включены' : '❌ Выключены'}</p>`;
+            html += '</div>';
+            
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+
+        async function setDuty(userId) {
+            const group = document.getElementById('groupInput').value.trim();
+            const pin = document.getElementById('pinInput').value.trim();
+
+            if (!group || !pin) {
+                showStatus('❌ Введите группу и PIN', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/headman', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        group: group,
+                        pin: pin,
+                        action: 'set_duty',
+                        user_id: userId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus('✅ Дежурный назначен!', 'success');
+                    setTimeout(() => loadData(), 1000);
+                } else {
+                    showStatus('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Ошибка сети: ' + error.message, 'error');
+            }
+        }
+
+        async function toggleSick(userId, isSick) {
+            const group = document.getElementById('groupInput').value.trim();
+            const pin = document.getElementById('pinInput').value.trim();
+
+            if (!group || !pin) {
+                showStatus('❌ Введите группу и PIN', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/headman', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        group: group,
+                        pin: pin,
+                        action: 'set_sick',
+                        user_id: userId,
+                        is_sick: isSick
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus('✅ Статус обновлен!', 'success');
+                    setTimeout(() => loadData(), 1000);
+                } else {
+                    showStatus('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Ошибка сети: ' + error.message, 'error');
+            }
+        }
+
+        async function sendMessage() {
+            const group = document.getElementById('groupInput').value.trim();
+            const pin = document.getElementById('pinInput').value.trim();
+            const message = document.getElementById('messageInput').value.trim();
+
+            if (!group || !pin || !message) {
+                showStatus('❌ Заполните все поля', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/headman', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        group: group,
+                        pin: pin,
+                        action: 'send_message',
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showStatus(`✅ Сообщение отправлено (${data.sent_count} получателей)`, 'success');
+                    document.getElementById('messageInput').value = '';
+                } else {
+                    showStatus('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Ошибка сети: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `mt-4 text-center p-3 rounded ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`;
+            
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = 'mt-4 text-center';
+            }, 3000);
+        }
+
+        window.addEventListener('load', () => {
+            const savedGroup = localStorage.getItem('headman_group');
+            const savedPin = localStorage.getItem('headman_pin');
+            
+            if (savedGroup) {
+                document.getElementById('groupInput').value = savedGroup;
+            }
+            if (savedPin) {
+                document.getElementById('pinInput').value = savedPin;
+            }
+        });
+
+        if (tg) {
+            tg.BackButton.onClick(() => {
+                window.history.back();
+            });
+        }
+    </script>
+</body>
+</html>

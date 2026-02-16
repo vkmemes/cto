@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2196F3">
+    <title>STTEC Schedule</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        body {
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
+        .lesson-card {
+            transition: all 0.3s ease;
+        }
+        .lesson-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .lesson-default {
+            border-left: 4px solid #2196F3;
+        }
+        .lesson-replaced {
+            border-left: 4px solid #FFC107;
+            background-color: #FFF9C4;
+        }
+        .lesson-canceled {
+            border-left: 4px solid #F44336;
+            background-color: #FFCDD2;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+    <div class="max-w-2xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-4">
+            <h1 class="text-3xl font-bold text-center mb-4">📚 STTEC Schedule</h1>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Группа:</label>
+                <input 
+                    type="text" 
+                    id="groupInput" 
+                    placeholder="Введите название группы" 
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">Дата:</label>
+                <input 
+                    type="date" 
+                    id="dateInput" 
+                    class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+            
+            <div class="flex gap-2 mb-4">
+                <button 
+                    onclick="loadSchedule()" 
+                    class="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                >
+                    📅 Показать
+                </button>
+                <button 
+                    onclick="loadToday()" 
+                    class="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
+                >
+                    📆 Сегодня
+                </button>
+            </div>
+            
+            <div class="flex gap-2">
+                <button 
+                    onclick="addToFavorites()" 
+                    class="flex-1 bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition"
+                >
+                    ⭐ В избранное
+                </button>
+            </div>
+        </div>
+        
+        <div id="scheduleContainer"></div>
+    </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+
+        document.getElementById('dateInput').valueAsDate = new Date();
+
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}.${month}.${year}`;
+        }
+
+        function loadToday() {
+            document.getElementById('dateInput').valueAsDate = new Date();
+            loadSchedule();
+        }
+
+        async function loadSchedule() {
+            const group = document.getElementById('groupInput').value.trim();
+            const dateInput = document.getElementById('dateInput').value;
+            
+            if (!group) {
+                alert('Введите название группы');
+                return;
+            }
+
+            const date = new Date(dateInput);
+            const dateStr = formatDate(date);
+
+            try {
+                const response = await fetch(`/api/schedule?group=${encodeURIComponent(group)}&date=${encodeURIComponent(dateStr)}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    displaySchedule(data);
+                    localStorage.setItem('favorite_group', group);
+                } else {
+                    alert('Ошибка: ' + (data.error || 'Не удалось загрузить расписание'));
+                }
+            } catch (error) {
+                alert('Ошибка сети: ' + error.message);
+            }
+        }
+
+        function displaySchedule(data) {
+            const container = document.getElementById('scheduleContainer');
+            
+            if (data.is_weekend) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                        <h2 class="text-2xl font-bold mb-2">📅 ${data.date}</h2>
+                        <p class="text-xl">🏖 Выходной день</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (data.lessons.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                        <h2 class="text-2xl font-bold mb-2">📅 ${data.date}</h2>
+                        <p class="text-xl">❌ Нет пар</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-2xl font-bold mb-4 text-center">📅 ${data.date}</h2>
+                    <div class="space-y-4">
+            `;
+
+            data.lessons.forEach((lesson, index) => {
+                let colorClass = 'lesson-default';
+                let emoji = '🔵';
+                
+                if (lesson.is_canceled) {
+                    colorClass = 'lesson-canceled';
+                    emoji = '🔴';
+                } else if (lesson.is_replaced) {
+                    colorClass = 'lesson-replaced';
+                    emoji = '🟡';
+                }
+
+                html += `
+                    <div class="lesson-card ${colorClass} bg-white p-4 rounded-lg shadow">
+                        <div class="flex items-start gap-3">
+                            <div class="text-2xl">${emoji}</div>
+                            <div class="flex-1">
+                                <div class="font-bold text-lg">${index + 1}. ${lesson.time}</div>
+                                <div class="text-base mt-1">${lesson.subject}</div>
+                                ${lesson.teacher ? `<div class="text-sm mt-1">👨‍🏫 ${lesson.teacher}</div>` : ''}
+                                ${lesson.room ? `<div class="text-sm mt-1">🚪 ${lesson.room}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function addToFavorites() {
+            const group = document.getElementById('groupInput').value.trim();
+            if (!group) {
+                alert('Введите название группы');
+                return;
+            }
+            localStorage.setItem('favorite_group', group);
+            alert('✅ Группа добавлена в избранное!');
+        }
+
+        window.addEventListener('load', () => {
+            const favoriteGroup = localStorage.getItem('favorite_group');
+            if (favoriteGroup) {
+                document.getElementById('groupInput').value = favoriteGroup;
+            }
+        });
+
+        if (tg) {
+            tg.BackButton.onClick(() => {
+                window.history.back();
+            });
+        }
+    </script>
+</body>
+</html>
