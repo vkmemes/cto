@@ -9,6 +9,31 @@ from bs4 import BeautifulSoup
 
 STOP_WORDS_CANCEL = ["снято", "отменено", "нет пары"]
 
+PAIR_TIMES = {
+    1: ("08:30", "10:00"),
+    2: ("10:10", "11:40"),
+    3: ("12:00", "13:30"),
+    4: ("13:40", "15:10"),
+    5: ("15:20", "16:50"),
+    6: ("17:00", "18:30"),
+    7: ("18:40", "20:10"),
+}
+
+def get_pair_number_from_time(time_str: str) -> int:
+    """Determine pair number from time string (e.g., '08:30-10:00')."""
+    if not time_str or "-" not in time_str:
+        return 0
+
+    try:
+        start_time = time_str.split("-")[0].strip()
+        for pair_num, (pair_start, _) in PAIR_TIMES.items():
+            if start_time == pair_start:
+                return pair_num
+    except Exception:
+        pass
+
+    return 0
+
 class Lesson(BaseModel):
     pair_number: int = 0
     time: str
@@ -122,7 +147,7 @@ class ScheduleManager:
             and (datetime.now() - self.replacements_cache_time).total_seconds() < self.cache_ttl_seconds
         ):
             return self.replacements_cache
-        
+
         async with self._replacement_lock:
             if (
                 self.replacements_cache
@@ -141,8 +166,11 @@ class ScheduleManager:
                 self.replacements_cache_time = datetime.now()
                 print(f"Successfully fetched and parsed {len(replacements)} group replacements")
                 return replacements
+            except httpx.HTTPError as e:
+                print(f"[ScheduleManager] HTTP error fetching replacements: {e}")
+                return {}
             except Exception as e:
-                print(f"Error fetching replacements: {e}")
+                print(f"[ScheduleManager] Error fetching replacements: {e}")
                 return {}
     
     def _build_replacements_index(self, replacements: Dict[str, Any]) -> Dict[str, Any]:
@@ -154,40 +182,46 @@ class ScheduleManager:
     def parse_replacements_html(self, html: str) -> Dict[str, Any]:
         soup = BeautifulSoup(html, "html.parser")
         replacements = {}
-        
+
         date_elem = soup.find("div", class_="replacement-date")
         if date_elem:
             date_str = date_elem.get_text(strip=True)
         else:
             date_str = datetime.now().strftime("%d.%m.%Y")
-        
+
         groups_divs = soup.find_all("div", class_="group-schedule")
-        
+
         for group_div in groups_divs:
             group_header = group_div.find("h3")
             if not group_header:
                 continue
-            
+
             group_name = group_header.get_text(strip=True)
             lessons_data = []
-            
+
             lesson_rows = group_div.find_all("div", class_="lesson-row")
             for row in lesson_rows:
                 time_elem = row.find("span", class_="time")
                 subject_elem = row.find("span", class_="subject")
                 teacher_elem = row.find("span", class_="teacher")
                 room_elem = row.find("span", class_="room")
-                
+
                 time = time_elem.get_text(strip=True) if time_elem else ""
                 subject = subject_elem.get_text(strip=True) if subject_elem else ""
                 teacher = teacher_elem.get_text(strip=True) if teacher_elem else ""
                 room = room_elem.get_text(strip=True) if room_elem else ""
-                
+
+                # Determine pair number from time
+                pair_number = get_pair_number_from_time(time)
+                if pair_number == 0:
+                    # Fallback to sequential numbering if time parsing fails
+                    pair_number = len(lessons_data) + 1
+
                 is_canceled = self.is_cancellation(subject, teacher, room)
                 color_class = "red" if is_canceled else "yellow"
-                
+
                 lessons_data.append({
-                    "pair_number": len(lessons_data) + 1,
+                    "pair_number": pair_number,
                     "time": time,
                     "subject": subject,
                     "teacher": teacher,
@@ -196,12 +230,12 @@ class ScheduleManager:
                     "is_canceled": is_canceled,
                     "color_class": color_class
                 })
-            
+
             replacements[group_name] = {
                 "date": date_str,
                 "lessons": lessons_data
             }
-        
+
         return replacements
     
     def is_cancellation(self, subject: str, teacher: str, room: str) -> bool:
@@ -220,35 +254,37 @@ class ScheduleManager:
         group_key = self.find_group_key(group_name)
         if not group_key:
             return None
-        
+
         replacements = await self.fetch_replacements()
-        
+
         date_str = target_date.strftime("%d.%m.%Y")
-        
         normalized_group = self.normalize_group_name(group_name)
         replacement_data = self.replacements_index.get(normalized_group)
-        
-        if replacement_data and replacement_data.get("date") == date_str:
-            lessons = [Lesson(**lesson_dict) for lesson_dict in replacement_data["lessons"]]
-            return DaySchedule(date_str=date_str, lessons=lessons, is_weekend=False)
-        
+
+        # Get base schedule first
         weekday = target_date.weekday()
         if weekday >= 5:
             return DaySchedule(date_str=date_str, lessons=[], is_weekend=True)
-        
+
         weekday_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
         day_name = weekday_names[weekday]
-        
+
         week_parity = self.get_week_parity(target_date)
-        
+
         group_data = self.base_schedule["groups"].get(group_key, {})
         schedule_data = group_data.get(week_parity, {}).get(day_name, [])
-        
+
         lessons = []
-        for lesson_dict in schedule_data:
+        for idx, lesson_dict in enumerate(schedule_data):
+            time_str = lesson_dict.get("time", "")
+            pair_number = get_pair_number_from_time(time_str)
+            if pair_number == 0:
+                # Fallback to index-based numbering if time parsing fails
+                pair_number = idx + 1
+
             lessons.append(Lesson(
-                pair_number=lesson_dict.get("pair_number", 0),
-                time=lesson_dict.get("time", ""),
+                pair_number=pair_number,
+                time=time_str,
                 subject=lesson_dict.get("subject", ""),
                 teacher=lesson_dict.get("teacher", ""),
                 room=lesson_dict.get("room", ""),
@@ -256,7 +292,30 @@ class ScheduleManager:
                 is_canceled=False,
                 color_class="default"
             ))
-        
+
+        # Apply replacements if available for this date
+        if replacement_data and replacement_data.get("date") == date_str:
+            replacements_lessons = replacement_data.get("lessons", [])
+            # Create a mapping of pair_number to replacement lesson
+            replacements_map = {r["pair_number"]: r for r in replacements_lessons}
+
+            # Apply replacements to base schedule
+            for i, lesson in enumerate(lessons):
+                replacement = replacements_map.get(lesson.pair_number)
+                if replacement:
+                    lessons[i] = Lesson(**replacement)
+                # Otherwise keep the base schedule lesson
+
+            # Check if there are any replacements that add new lessons
+            max_pair_number = max((l.pair_number for l in lessons), default=0)
+            for replacement in replacements_lessons:
+                if replacement["pair_number"] > max_pair_number:
+                    # This is a new lesson added by replacement
+                    lessons.append(Lesson(**replacement))
+
+            # Sort by pair number
+            lessons.sort(key=lambda x: x.pair_number)
+
         return DaySchedule(date_str=date_str, lessons=lessons, is_weekend=False)
     
     async def get_week_schedule(self, group_name: str, start_date: Optional[date] = None) -> List[DaySchedule]:
