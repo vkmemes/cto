@@ -1,0 +1,119 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+concurrency:
+  group: production
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run syntax check
+        run: |
+          python -m py_compile bot_main.py web_main.py core.py database.py
+
+      - name: Test imports
+        run: |
+          python -c "import core; import database; print('Imports OK')"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          log-public-key: false
+
+      - name: Add host to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          # Sync files (excluding sensitive data)
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='*.pyc' \
+            --exclude='.env' \
+            --exclude='ygk.db' \
+            --exclude='logs/*.log' \
+            --exclude='backups/' \
+            --exclude='.github/' \
+            --exclude='deploy/' \
+            ./ $SERVER_USER@$SERVER_HOST:/opt/ygk/
+
+          # Run deployment script
+          ssh $SERVER_USER@$SERVER_HOST 'cd /opt/ygk && ./deploy.sh'
+
+      - name: Verify deployment
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          ssh $SERVER_USER@$SERVER_HOST '
+            echo "=== Service Status ==="
+            systemctl is-active ygk-bot && echo "✅ ygk-bot running" || echo "❌ ygk-bot failed"
+            systemctl is-active ygk-web && echo "✅ ygk-web running" || echo "❌ ygk-web failed"
+            
+            echo "=== Recent Logs ==="
+            journalctl -u ygk-bot -n 5 --no-pager
+            journalctl -u ygk-web -n 5 --no-pager
+          '
+
+      - name: Create deployment notification
+        if: success()
+        run: |
+          echo "🚀 Deployment successful!"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+          echo "Message: ${{ github.event.head_commit.message }}"
+
+      - name: Rollback on failure
+        if: failure()
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          echo "❌ Deployment failed! Attempting rollback..."
+          ssh $SERVER_USER@$SERVER_HOST 'cd /opt/ygk && git reset --hard HEAD@{1} && sudo systemctl restart ygk-bot ygk-web'

@@ -1,0 +1,22 @@
+[Unit]
+Description=Webhook Auto-Deploy Server for YGK Schedule
+After=network.target
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/opt/ygk
+Environment="PATH=/opt/ygk/venv/bin"
+Environment="PYTHONPATH=/opt/ygk"
+Environment="WEBHOOK_PORT=9000"
+Environment="WEBHOOK_SECRET=your-secure-webhook-secret-here"
+Environment="PROJECT_DIR=/opt/ygk"
+Environment="DEPLOY_BRANCH=main"
+ExecStart=/opt/ygk/venv/bin/python /opt/ygk/deploy/webhook_server.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/ygk-webhook.log
+StandardError=append:/var/log/ygk-webhook.log
+
+[Install]
+WantedBy=multi-user.target

@@ -159,6 +159,7 @@ python web_main.py
 > 📚 **Документация по деплою:**
 > - [DEPLOYMENT_CLOUDPUB.md](DEPLOYMENT_CLOUDPUB.md) - Деплой через Cloudflare Tunnel (свой домен)
 > - [DEPLOYMENT_ALTERNATIVES.md](DEPLOYMENT_ALTERNATIVES.md) - Бесплатные альтернативы без привязки карты
+> - [AUTODEPLOY_GUIDE.md](AUTODEPLOY_GUIDE.md) - Полный гайд по автодеплою (GitHub Actions, Docker, Webhooks)
 
 **Создайте файл `/etc/systemd/system/ygk-bot.service`:**
 
