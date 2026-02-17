@@ -76,7 +76,7 @@ async def subscription_middleware(update: Update, context: ContextTypes.DEFAULT_
         if not await check_subscription(user_id, context):
             keyboard = [[InlineKeyboardButton("📢 Подписаться", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "❌ Для использования бота необходимо подписаться на наш канал!\n\n"
                 "Подпишитесь на канал и нажмите /start снова.",
                 reply_markup=reply_markup
@@ -310,9 +310,10 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     args = context.args
+    message = update.effective_message
 
     if not args:
-        await update.message.reply_text(
+        await message.reply_text(
             "🔍 <b>Поиск группы</b>\n\n"
             "Введите часть названия группы:\n"
             "• Код направления (<code>СА</code>, <code>ИС</code>)\n"
@@ -329,7 +330,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = schedule_manager.search_groups(search_term, limit=20)
 
     if not results:
-        await update.message.reply_text(
+        await message.reply_text(
             f"❌ По запросу '<code>{search_term}</code>' ничего не найдено.\n\n"
             "Попробуйте другой запрос или введите /search без параметров.",
             parse_mode="HTML",
@@ -342,7 +343,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
         await db.upsert_user(user.id, user.username, group)
         await db.upsert_student(group, user.id, user.full_name or "")
-        await update.message.reply_text(
+        await message.reply_text(
             f"✅ Группа найдена и установлена: <b>{group}</b>\n\n"
             "Используйте кнопки меню ниже для просмотра расписания.",
             parse_mode="HTML",
@@ -363,7 +364,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"<b>или /change_group &lt;название_группы&gt; для выбора</b>"
     )
 
-    await update.message.reply_text(
+    await message.reply_text(
         results_text,
         parse_mode="HTML",
         reply_markup=MAIN_MENU_KEYBOARD
@@ -395,11 +396,12 @@ async def change_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
     current_group = user_data.group_name if user_data else None
 
     args = context.args
+    message = update.effective_message
 
     if not args:
         # Show current group and ask for new one
         current_text = f"🎓 <b>Текущая группа:</b> {current_group}\n\n" if current_group else ""
-        await update.message.reply_text(
+        await message.reply_text(
             f"{current_text}"
             "🔍 <b>Смена группы</b>\n\n"
             "Введите название новой группы:\n"
@@ -420,7 +422,7 @@ async def change_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
         # Try search
         results = schedule_manager.search_groups(new_group, limit=10)
         if not results:
-            await update.message.reply_text(
+            await message.reply_text(
                 f"❌ Группа '<code>{new_group}</code>' не найдена.\n\n"
                 "Используйте /change_group без параметров для поиска.",
                 parse_mode="HTML",
@@ -438,7 +440,7 @@ async def change_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
                 f"\n<b>Используйте:</b>\n"
                 f"/change_group &lt;полное_название&gt;"
             )
-            await update.message.reply_text(
+            await message.reply_text(
                 results_text,
                 parse_mode="HTML",
                 reply_markup=MAIN_MENU_KEYBOARD
@@ -459,7 +461,7 @@ async def change_group_command(update: Update, context: ContextTypes.DEFAULT_TYP
             student.is_sick
         )
 
-    await update.message.reply_text(
+    await message.reply_text(
         f"✅ Группа успешно изменена!\n\n"
         f"🎓 <b>Новая группа:</b> {group_key}\n"
         f"📊 <b>Предыдущая группа:</b> {current_group or 'не установлена'}\n\n"
@@ -566,12 +568,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Уведомления о заменах приходят автоматически\n\n"
         "📢 <b>Канал:</b> " + CHANNEL_USERNAME
     )
-    await update.message.reply_text(help_text, parse_mode="HTML", reply_markup=MAIN_MENU_KEYBOARD)
+    await update.effective_message.reply_text(help_text, parse_mode="HTML", reply_markup=MAIN_MENU_KEYBOARD)
 
 
 async def handle_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle main menu button presses."""
-    text = update.message.text
+    text = None
+    if update.message:
+        text = update.message.text
+    elif update.callback_query:
+        text = update.callback_query.data
+
+    if not text:
+        return
 
     if text == "📅 Сегодня":
         return await today(update, context)
@@ -586,10 +595,16 @@ async def handle_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "❓ Помощь":
         return await help_command(update, context)
     elif text == "🗑 Убрать клавиатуру":
-        await update.message.reply_text(
-            "Клавиатура убрана.\n\nИспользуйте /start для возврата меню.",
-            reply_markup=REMOVE_KEYBOARD
-        )
+        if update.message:
+            await update.message.reply_text(
+                "Клавиатура убрана.\n\nИспользуйте /start для возврата меню.",
+                reply_markup=REMOVE_KEYBOARD
+            )
+        elif update.callback_query:
+            await update.callback_query.message.reply_text(
+                "Клавиатура убрана.\n\nИспользуйте /start для возврата меню.",
+                reply_markup=REMOVE_KEYBOARD
+            )
         return ConversationHandler.END
 
     return ConversationHandler.END
@@ -602,9 +617,10 @@ async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     user_data = await db.get_user(user.id)
+    message = update.effective_message
 
     if not user_data or not user_data.group_name:
-        await update.message.reply_text(
+        await message.reply_text(
             "❌ <b>Группа не установлена</b>\n\n"
             "Для просмотра расписания необходимо выбрать группу.\n\n"
             "Используйте: /start для выбора группы",
@@ -618,9 +634,9 @@ async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if day_schedule:
         text = schedule_manager.format_schedule_text(day_schedule)
-        await update.message.reply_text(text, reply_markup=MAIN_MENU_KEYBOARD)
+        await message.reply_text(text, reply_markup=MAIN_MENU_KEYBOARD)
     else:
-        await update.message.reply_text(
+        await message.reply_text(
             "❌ Не удалось получить расписание.\n\n"
             "Попробуйте позже или проверьте настройки группы.",
             reply_markup=MAIN_MENU_KEYBOARD
@@ -634,9 +650,10 @@ async def tomorrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     user_data = await db.get_user(user.id)
+    message = update.effective_message
 
     if not user_data or not user_data.group_name:
-        await update.message.reply_text(
+        await message.reply_text(
             "❌ <b>Группа не установлена</b>\n\n"
             "Для просмотра расписания необходимо выбрать группу.\n\n"
             "Используйте: /start для выбора группы",
@@ -650,9 +667,9 @@ async def tomorrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if day_schedule:
         text = schedule_manager.format_schedule_text(day_schedule)
-        await update.message.reply_text(text, reply_markup=MAIN_MENU_KEYBOARD)
+        await message.reply_text(text, reply_markup=MAIN_MENU_KEYBOARD)
     else:
-        await update.message.reply_text(
+        await message.reply_text(
             "❌ Не удалось получить расписание.\n\n"
             "Попробуйте позже или проверьте настройки группы.",
             reply_markup=MAIN_MENU_KEYBOARD
@@ -666,9 +683,10 @@ async def week(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.effective_user
     user_data = await db.get_user(user.id)
+    message = update.effective_message
 
     if not user_data or not user_data.group_name:
-        await update.message.reply_text(
+        await message.reply_text(
             "❌ <b>Группа не установлена</b>\n\n"
             "Для просмотра расписания необходимо выбрать группу.\n\n"
             "Используйте: /start для выбора группы",
@@ -682,15 +700,15 @@ async def week(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if week_schedule:
         for day_schedule in week_schedule:
             text = schedule_manager.format_schedule_text(day_schedule)
-            await update.message.reply_text(text)
+            await message.reply_text(text)
             await asyncio.sleep(0.5)
         # Send menu at the end
-        await update.message.reply_text(
+        await message.reply_text(
             "✅ Расписание на неделю показано выше.",
             reply_markup=MAIN_MENU_KEYBOARD
         )
     else:
-        await update.message.reply_text(
+        await message.reply_text(
             "❌ Не удалось получить расписание на неделю.\n\n"
             "Попробуйте позже или проверьте настройки группы.",
             reply_markup=MAIN_MENU_KEYBOARD
