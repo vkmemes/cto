@@ -274,25 +274,50 @@ class ScheduleManager:
         
         return week_schedule
     
-    def format_schedule_text(self, day_schedule: DaySchedule) -> str:
+    def get_pair_emoji(self, pair_number: int) -> str:
+        """Возвращает эмодзи для номера пары."""
+        emojis = {
+            0: "0️⃣", 1: "1️⃣", 2: "2️⃣", 3: "3️⃣",
+            4: "4️⃣", 5: "5️⃣", 6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣"
+        }
+        return emojis.get(pair_number, str(pair_number))
+
+    def format_schedule_text(self, day_schedule: DaySchedule, target_date: date) -> str:
+        # Получаем название дня недели и четность
+        day_names = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+        weekday_idx = target_date.weekday()
+        day_name = day_names[weekday_idx]
+        week_parity = self.get_week_parity(target_date)
+        parity_ru = "числитель" if week_parity == "numerator" else "знаменатель"
+
+        header = f"📅 {day_name} ({day_schedule.date_str} | {parity_ru})"
+
         if day_schedule.is_weekend:
-            return f"📅 {day_schedule.date_str}\n🏖 Выходной день"
-        
+            return f"{header}\n🏖 Выходной день"
+
         if not day_schedule.lessons:
-            return f"📅 {day_schedule.date_str}\n❌ Нет пар"
-        
-        lines = [f"📅 {day_schedule.date_str}\n"]
+            return f"{header}\n❌ Нет пар"
+
+        lines = [header, ""]
 
         for lesson in day_schedule.lessons:
-            emoji = "🔴" if lesson.is_canceled else ("🟡" if lesson.is_replaced else "🔵")
-            lines.append(f"{emoji} {lesson.pair_number}. {lesson.time}")
-            lines.append(f"   {lesson.subject}")
-            if lesson.teacher:
-                lines.append(f"   👨‍🏫 {lesson.teacher}")
-            if lesson.room:
-                lines.append(f"   🚪 {lesson.room}")
-            lines.append("")
-        
+            if lesson.is_canceled:
+                # Отмена: 🚫 0️⃣ Литература (ОТМЕНА)
+                pair_emoji = self.get_pair_emoji(lesson.pair_number)
+                lines.append(f"🚫 {pair_emoji} {lesson.subject} (ОТМЕНА)")
+            elif lesson.is_replaced:
+                # Замена: 🔄 1️⃣ Информ. Комиссарова ОВ - А409А407
+                pair_emoji = self.get_pair_emoji(lesson.pair_number)
+                room_info = f" - {lesson.room}" if lesson.room else ""
+                teacher_info = f" {lesson.teacher}" if lesson.teacher else ""
+                lines.append(f"🔄 {pair_emoji} {lesson.subject}{teacher_info}{room_info}")
+            else:
+                # Обычная пара: 1️⃣ Математика Петров ИИ - 305
+                pair_emoji = self.get_pair_emoji(lesson.pair_number)
+                room_info = f" - {lesson.room}" if lesson.room else ""
+                teacher_info = f" {lesson.teacher}" if lesson.teacher else ""
+                lines.append(f"{pair_emoji} {lesson.subject}{teacher_info}{room_info}")
+
         return "\n".join(lines)
     
     def get_all_groups(self) -> List[str]:
