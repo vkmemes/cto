@@ -633,7 +633,7 @@ async def today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     day_schedule = await schedule_manager.get_schedule_for_date(user_data.group_name, target_date)
 
     if day_schedule:
-        text = schedule_manager.format_schedule_text(day_schedule)
+        text = schedule_manager.format_schedule_text(day_schedule, target_date)
         await message.reply_text(text, reply_markup=MAIN_MENU_KEYBOARD)
     else:
         await message.reply_text(
@@ -666,7 +666,7 @@ async def tomorrow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     day_schedule = await schedule_manager.get_schedule_for_date(user_data.group_name, target_date)
 
     if day_schedule:
-        text = schedule_manager.format_schedule_text(day_schedule)
+        text = schedule_manager.format_schedule_text(day_schedule, target_date)
         await message.reply_text(text, reply_markup=MAIN_MENU_KEYBOARD)
     else:
         await message.reply_text(
@@ -698,8 +698,10 @@ async def week(update: Update, context: ContextTypes.DEFAULT_TYPE):
     week_schedule = await schedule_manager.get_week_schedule(user_data.group_name)
 
     if week_schedule:
-        for day_schedule in week_schedule:
-            text = schedule_manager.format_schedule_text(day_schedule)
+        start_of_week = date.today() - timedelta(days=date.today().weekday())
+        for i, day_schedule in enumerate(week_schedule):
+            day_date = start_of_week + timedelta(days=i)
+            text = schedule_manager.format_schedule_text(day_schedule, day_date)
             await message.reply_text(text)
             await asyncio.sleep(0.5)
         # Send menu at the end
@@ -779,7 +781,8 @@ async def job_smart_poll(context: ContextTypes.DEFAULT_TYPE):
             logger.info("No replacements found")
             return
 
-        target_date_str = date.today().strftime("%d.%m.%Y")
+        target_date = date.today()
+        target_date_str = target_date.strftime("%d.%m.%Y")
         schedule_cache = {}
 
         for group_name, repl_data in replacements.items():
@@ -788,7 +791,7 @@ async def job_smart_poll(context: ContextTypes.DEFAULT_TYPE):
 
             users = await db.get_users_by_group(group_name)
             if group_name not in schedule_cache:
-                schedule_cache[group_name] = await schedule_manager.get_schedule_for_date(group_name, date.today())
+                schedule_cache[group_name] = await schedule_manager.get_schedule_for_date(group_name, target_date)
             day_schedule = schedule_cache[group_name]
             if not day_schedule:
                 continue
@@ -798,7 +801,7 @@ async def job_smart_poll(context: ContextTypes.DEFAULT_TYPE):
                     continue
 
                 try:
-                    text = "🔔 Обновление расписания!\n\n" + schedule_manager.format_schedule_text(day_schedule)
+                    text = "🔔 Обновление расписания!\n\n" + schedule_manager.format_schedule_text(day_schedule, target_date)
                     await context.bot.send_message(chat_id=user.user_id, text=text)
                     await db.mark_user_notified_today(user.user_id)
                     await asyncio.sleep(0.05)
