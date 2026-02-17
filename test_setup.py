@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test setup script to verify STTEC Schedule installation.
+Test setup script to verify ЯГК Schedule installation.
 """
 import asyncio
 import sys
@@ -165,7 +165,7 @@ def check_core_imports():
 
 async def main():
     print("=" * 60)
-    print("🚀 STTEC Schedule - Setup Test")
+    print("🚀 ЯГК Schedule - Setup Test")
     print("=" * 60)
     print()
     

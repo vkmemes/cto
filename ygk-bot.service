@@ -1,5 +1,5 @@
 [Unit]
-Description=STTEC Schedule Telegram Bot
+Description=ЯГК Schedule Telegram Bot
 After=network.target
 
 [Service]

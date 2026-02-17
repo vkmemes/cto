@@ -52,17 +52,17 @@ lt --port 8000
 **С自定义 поддоменом:**
 
 ```bash
-lt --port 8000 --subdomain sttec-schedule
+lt --port 8000 --subdomain ygk-schedule
 
 # Вывод:
-# your url is: https://sttec-schedule.loca.lt
+# your url is: https://ygk-schedule.loca.lt
 ```
 
-**Для STTEC Schedule:**
+**Для ЯГК Schedule:**
 
 ```bash
 # Веб-интерфейс
-lt --port 8000 --subdomain sttec-web
+lt --port 8000 --subdomain ygk-web
 
 # Для локальной разработки
 lt --port 8000 --local-host localhost
@@ -74,14 +74,14 @@ lt --port 8000 --local-host localhost
 
 ```ini
 [Unit]
-Description=LocalTunnel for STTEC Schedule
+Description=LocalTunnel for ЯГК Schedule
 After=network.target
 
 [Service]
 Type=simple
-User=sttec
-WorkingDirectory=/opt/sttec
-ExecStart=/usr/bin/lt --port 8000 --subdomain sttec-schedule
+User=ygk
+WorkingDirectory=/opt/ygk
+ExecStart=/usr/bin/lt --port 8000 --subdomain ygk-schedule
 Restart=always
 RestartSec=10
 
@@ -182,7 +182,7 @@ ngrok http 8000 --domain=your-reserved-domain.ngrok-free.app
 
 ```yaml
 tunnels:
-  sttec-web:
+  ygk-web:
     proto: http
     addr: 8000
     bind_tls: true
@@ -193,7 +193,7 @@ tunnels:
 Запуск:
 
 ```bash
-ngrok start sttec-web
+ngrok start ygk-web
 ```
 
 ### Интеграция с systemd
@@ -207,7 +207,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=sttec
+User=ygk
 ExecStart=/usr/local/bin/ngrok http 8000 --log=stdout
 Restart=always
 RestartSec=10
@@ -246,10 +246,10 @@ ssh -R 80:localhost:8000 serveo.net
 **С自定义 поддоменом:**
 
 ```bash
-ssh -R sttec-schedule:80:localhost:8000 serveo.net
+ssh -R ygk-schedule:80:localhost:8000 serveo.net
 
 # Ваш сайт будет доступен по:
-# https://sttec-schedule.serveo.net
+# https://ygk-schedule.serveo.net
 ```
 
 **Постоянное соединение:**
@@ -257,19 +257,19 @@ ssh -R sttec-schedule:80:localhost:8000 serveo.net
 ```bash
 # Автоматическое переподключение при обрыве
 while true; do
-    ssh -o ServerAliveInterval=60 -R sttec-schedule:80:localhost:8000 serveo.net
+    ssh -o ServerAliveInterval=60 -R ygk-schedule:80:localhost:8000 serveo.net
     sleep 5
 done
 ```
 
-**Для STTEC Schedule:**
+**Для ЯГК Schedule:**
 
 ```bash
 # Веб-интерфейс
-ssh -R sttec-web:80:localhost:8000 serveo.net
+ssh -R ygk-web:80:localhost:8000 serveo.net
 
 # В фоне с nohup
-nohup ssh -o ServerAliveInterval=60 -R sttec-web:80:localhost:8000 serveo.net > /dev/null 2>&1 &
+nohup ssh -o ServerAliveInterval=60 -R ygk-web:80:localhost:8000 serveo.net > /dev/null 2>&1 &
 ```
 
 ### Интеграция с systemd
@@ -283,8 +283,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=sttec
-ExecStart=/usr/bin/ssh -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=no -N -R sttec-schedule:80:localhost:8000 serveo.net
+User=ygk
+ExecStart=/usr/bin/ssh -o ServerAliveInterval=60 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=no -N -R ygk-schedule:80:localhost:8000 serveo.net
 Restart=always
 RestartSec=10
 
@@ -352,7 +352,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=sttec
+User=ygk
 ExecStart=/usr/local/bin/bore local 8000 --to bore.pub
 Restart=always
 RestartSec=10
@@ -396,12 +396,12 @@ sudo systemctl restart sshd
 
 **2. Настройка nginx для HTTPS:**
 
-Создайте `/etc/nginx/sites-available/sttec`:
+Создайте `/etc/nginx/sites-available/ygk`:
 
 ```nginx
 server {
     listen 80;
-    server_name sttec.yourdomain.com;
+    server_name ygk.yourdomain.com;
 
     location / {
         proxy_pass http://localhost:8000;
@@ -416,7 +416,7 @@ server {
 Включите сайт и настройте HTTPS через Let's Encrypt:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/sttec /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/ygk /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 
@@ -424,7 +424,7 @@ sudo systemctl reload nginx
 sudo apt install certbot python3-certbot-nginx
 
 # Получение сертификата
-sudo certbot --nginx -d sttec.yourdomain.com
+sudo certbot --nginx -d ygk.yourdomain.com
 ```
 
 ### Настройка на локальном сервере
@@ -452,8 +452,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=sttec
-ExecStart=/usr/bin/ssh -i /home/sttec/.ssh/vps_tunnel_key -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=no -N -R 8000:localhost:8000 user@your-vps.com
+User=ygk
+ExecStart=/usr/bin/ssh -i /home/ygk/.ssh/vps_tunnel_key -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -o StrictHostKeyChecking=no -N -R 8000:localhost:8000 user@your-vps.com
 Restart=always
 RestartSec=10
 
@@ -469,7 +469,7 @@ sudo systemctl enable ssh-reverse-tunnel
 sudo systemctl start ssh-reverse-tunnel
 ```
 
-**Теперь ваш сайт доступен по:** `https://sttec.yourdomain.com`
+**Теперь ваш сайт доступен по:** `https://ygk.yourdomain.com`
 
 ### Стоимость
 
@@ -565,30 +565,30 @@ Tailscale автоматически устанавливается как сл�
 
 ---
 
-## 🔧 Настройка STTEC Schedule с альтернативами
+## 🔧 Настройка ЯГК Schedule с альтернативами
 
 ### LocalTunnel
 
 ```bash
 # На сервере
-cd /opt/sttec
+cd /opt/ygk
 source venv/bin/activate
 
 # Запуск веб-сервера
 python web_main.py &
 
 # В другом терминале
-lt --port 8000 --subdomain sttec-schedule
+lt --port 8000 --subdomain ygk-schedule
 
 # В Telegram BotFather установите URL Mini App:
-# https://sttec-schedule.loca.lt/homework
+# https://ygk-schedule.loca.lt/homework
 ```
 
 ### ngrok
 
 ```bash
 # На сервере
-cd /opt/sttec
+cd /opt/ygk
 
 # Запуск
 ngrok http 8000
@@ -603,32 +603,32 @@ ngrok http 8000
 sudo systemctl start ssh-reverse-tunnel
 
 # Ваш сайт доступен по вашему домену:
-# https://sttec.yourdomain.com
+# https://ygk.yourdomain.com
 
 # В Telegram Mini Apps используйте этот URL
 ```
 
-### systemd конфигурация для STTEC
+### systemd конфигурация для ЯГК
 
-Создайте `/etc/systemd/system/sttec-with-tunnel.service`:
+Создайте `/etc/systemd/system/ygk-with-tunnel.service`:
 
 ```ini
 [Unit]
-Description=STTEC Schedule with LocalTunnel
+Description=ЯГК Schedule with LocalTunnel
 After=network.target
 
 [Service]
 Type=forking
-User=sttec
-WorkingDirectory=/opt/sttec
-Environment="PATH=/opt/sttec/venv/bin"
-EnvironmentFile=/opt/sttec/.env
+User=ygk
+WorkingDirectory=/opt/ygk
+Environment="PATH=/opt/ygk/venv/bin"
+EnvironmentFile=/opt/ygk/.env
 
 # Запуск веб-сервера
-ExecStart=/opt/sttec/venv/bin/python web_main.py
+ExecStart=/opt/ygk/venv/bin/python web_main.py
 
 # Запуск туннеля (добавьте после запуска веб-сервера)
-ExecStartPost=/usr/bin/lt --port 8000 --subdomain sttec-schedule
+ExecStartPost=/usr/bin/lt --port 8000 --subdomain ygk-schedule
 
 Restart=always
 RestartSec=10
@@ -652,7 +652,7 @@ WantedBy=multi-user.target
 ### Для публичных туннелей
 
 - Не exposing чувствительные данные без аутентификации
-- Используйте PIN-коды (уже реализовано в STTEC)
+- Используйте PIN-коды (уже реализовано в ЯГК)
 - Рассмотрите rate-limiting
 
 ### Для SSH туннелей
@@ -672,7 +672,7 @@ WantedBy=multi-user.target
 sudo journalctl -u localtunnel -f
 
 # Проверка доступности
-curl https://sttec-schedule.loca.lt/
+curl https://ygk-schedule.loca.lt/
 ```
 
 ### ngrok

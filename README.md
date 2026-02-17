@@ -1,4 +1,4 @@
-# STTEC Schedule System
+# ЯГК Schedule System
 
 Система управления расписанием для Ярославского строительного колледжа, включающая Telegram бота, парсер расписания и веб-интерфейс с поддержкой Telegram Mini Apps.
 
@@ -81,7 +81,7 @@ nano .env  # Отредактируйте файл
 
 Необходимые переменные:
 - `BOT_TOKEN` - токен Telegram бота (получите у @BotFather)
-- `CHANNEL_USERNAME` - имя канала для обязательной подписки (например, @sttec_channel)
+- `CHANNEL_USERNAME` - имя канала для обязательной подписки (например, @ygk_channel)
 - `REPLACEMENT_URL` - URL страницы с заменами
 - `DATABASE_URL` - путь к БД (по умолчанию SQLite)
 - `WEB_PORT` - порт веб-сервера (по умолчанию 8000)
@@ -160,11 +160,11 @@ python web_main.py
 > - [DEPLOYMENT_CLOUDPUB.md](DEPLOYMENT_CLOUDPUB.md) - Деплой через Cloudflare Tunnel (свой домен)
 > - [DEPLOYMENT_ALTERNATIVES.md](DEPLOYMENT_ALTERNATIVES.md) - Бесплатные альтернативы без привязки карты
 
-**Создайте файл `/etc/systemd/system/sttec-bot.service`:**
+**Создайте файл `/etc/systemd/system/ygk-bot.service`:**
 
 ```ini
 [Unit]
-Description=STTEC Schedule Bot
+Description=ЯГК Schedule Bot
 After=network.target
 
 [Service]
@@ -181,11 +181,11 @@ RestartSec=10
 WantedBy=multi-user.target
 ```
 
-**Создайте файл `/etc/systemd/system/sttec-web.service`:**
+**Создайте файл `/etc/systemd/system/ygk-web.service`:**
 
 ```ini
 [Unit]
-Description=STTEC Schedule Web
+Description=ЯГК Schedule Web
 After=network.target
 
 [Service]
@@ -206,9 +206,9 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable sttec-bot sttec-web
-sudo systemctl start sttec-bot sttec-web
-sudo systemctl status sttec-bot sttec-web
+sudo systemctl enable ygk-bot ygk-web
+sudo systemctl start ygk-bot ygk-web
+sudo systemctl status ygk-bot ygk-web
 ```
 
 ## Использование
@@ -346,8 +346,8 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 Просмотр логов systemd:
 ```bash
-sudo journalctl -u sttec-bot -f
-sudo journalctl -u sttec-web -f
+sudo journalctl -u ygk-bot -f
+sudo journalctl -u ygk-web -f
 ```
 
 ## Безопасность
@@ -362,8 +362,8 @@ sudo journalctl -u sttec-web -f
 
 **Бот не отвечает:**
 ```bash
-sudo systemctl status sttec-bot
-sudo journalctl -u sttec-bot -n 50
+sudo systemctl status ygk-bot
+sudo journalctl -u ygk-bot -n 50
 ```
 
 **Ошибки базы данных:**
@@ -393,7 +393,7 @@ python migrate.py  # Пересоздать схему
 
 Измените `DATABASE_URL` в `.env`:
 ```
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost/sttec
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost/ygk
 ```
 
 Установите драйвер:

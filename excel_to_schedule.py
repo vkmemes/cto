@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Excel to schedule.json converter - STTEC Schedule Edition
-Converts Excel schedules from STTEC format to JSON format for STTEC Schedule system.
+Excel to schedule.json converter - ЯГК Schedule Edition
+Converts Excel schedules from ЯГК format to JSON format for ЯГК Schedule system.
 
 Features:
 - Auto-detects and processes all .xlsx files in script directory

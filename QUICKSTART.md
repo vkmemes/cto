@@ -1,4 +1,4 @@
-# STTEC Schedule - Quick Start Guide
+# ЯГК Schedule - Quick Start Guide
 
 ## 🚀 Быстрый запуск (5 минут)
 
@@ -120,8 +120,8 @@ python web_main.py
 
 1. Откройте [@BotFather](https://t.me/BotFather)
 2. Создайте нового бота: `/newbot`
-3. Введите имя: `STTEC Schedule`
-4. Введите username: `sttec_schedule_bot`
+3. Введите имя: `ЯГК Schedule`
+4. Введите username: `ygk_schedule_bot`
 5. Скопируйте токен в `.env`
 6. Настройте команды:
 
@@ -145,9 +145,9 @@ setpin - Установить PIN-код группы (староста)
 ## 📱 Настройка канала
 
 1. Создайте публичный канал в Telegram
-2. Установите username канала (например, `@sttec_channel`)
+2. Установите username канала (например, `@ygk_channel`)
 3. Добавьте бота как администратора канала
-4. Укажите username в `.env`: `CHANNEL_USERNAME=@sttec_channel`
+4. Укажите username в `.env`: `CHANNEL_USERNAME=@ygk_channel`
 
 ## 🔐 Настройка PIN-кодов
 
@@ -222,9 +222,9 @@ tail -f logs/web.log
 
 ### Проверка базы данных
 ```bash
-sqlite3 sttec.db "SELECT * FROM users;"
-sqlite3 sttec.db "SELECT * FROM students;"
-sqlite3 sttec.db "SELECT * FROM group_settings;"
+sqlite3 ygk.db "SELECT * FROM users;"
+sqlite3 ygk.db "SELECT * FROM students;"
+sqlite3 ygk.db "SELECT * FROM group_settings;"
 ```
 
 ## 🐛 Устранение проблем
@@ -250,10 +250,10 @@ export BOT_TOKEN="your_token_here"
 ### Ошибка: Cannot connect to database
 ```bash
 # Проверьте права доступа
-ls -la sttec.db
+ls -la ygk.db
 
 # Пересоздайте базу данных
-rm sttec.db
+rm ygk.db
 python migrate.py
 ```
 
@@ -274,39 +274,39 @@ python migrate.py
 
 1. Отредактируйте пути в сервисных файлах:
    ```bash
-   nano sttec-bot.service
-   nano sttec-web.service
+   nano ygk-bot.service
+   nano ygk-web.service
    ```
 
 2. Скопируйте файлы в systemd:
    ```bash
-   sudo cp sttec-bot.service /etc/systemd/system/
-   sudo cp sttec-web.service /etc/systemd/system/
+   sudo cp ygk-bot.service /etc/systemd/system/
+   sudo cp ygk-web.service /etc/systemd/system/
    ```
 
 3. Запустите сервисы:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable sttec-bot sttec-web
-   sudo systemctl start sttec-bot sttec-web
+   sudo systemctl enable ygk-bot ygk-web
+   sudo systemctl start ygk-bot ygk-web
    ```
 
 4. Проверьте статус:
    ```bash
-   sudo systemctl status sttec-bot
-   sudo systemctl status sttec-web
+   sudo systemctl status ygk-bot
+   sudo systemctl status ygk-web
    ```
 
 ### Использование screen (альтернатива)
 
 ```bash
 # Запуск бота
-screen -S sttec-bot
+screen -S ygk-bot
 python bot_main.py
 # Нажмите Ctrl+A, затем D для отсоединения
 
 # Запуск веб-сервера
-screen -S sttec-web
+screen -S ygk-web
 python web_main.py
 # Нажмите Ctrl+A, затем D для отсоединения
 
@@ -314,7 +314,7 @@ python web_main.py
 screen -ls
 
 # Подключение к сессии
-screen -r sttec-bot
+screen -r ygk-bot
 ```
 
 ## 📈 Масштабирование
@@ -328,9 +328,9 @@ screen -r sttec-bot
 
 2. Создайте базу данных:
    ```sql
-   CREATE DATABASE sttec;
-   CREATE USER sttec WITH PASSWORD 'password';
-   GRANT ALL PRIVILEGES ON DATABASE sttec TO sttec;
+   CREATE DATABASE ygk;
+   CREATE USER ygk WITH PASSWORD 'password';
+   GRANT ALL PRIVILEGES ON DATABASE ygk TO ygk;
    ```
 
 3. Установите драйвер:
@@ -340,7 +340,7 @@ screen -r sttec-bot
 
 4. Обновите `.env`:
    ```
-   DATABASE_URL=postgresql+asyncpg://sttec:password@localhost/sttec
+   DATABASE_URL=postgresql+asyncpg://ygk:password@localhost/ygk
    ```
 
 5. Выполните миграцию:
@@ -361,10 +361,10 @@ pip list
 pip install --upgrade -r requirements.txt
 
 # Бэкап базы данных
-cp sttec.db sttec.db.backup
+cp ygk.db ygk.db.backup
 
 # Восстановление бэкапа
-cp sttec.db.backup sttec.db
+cp ygk.db.backup ygk.db
 
 # Очистка логов
 > logs/bot.log
@@ -387,7 +387,7 @@ cp sttec.db.backup sttec.db
 
 ## ✅ Готово!
 
-Ваша система STTEC Schedule должна быть запущена и готова к использованию!
+Ваша система ЯГК Schedule должна быть запущена и готова к использованию!
 
 Для получения справки используйте:
 ```bash

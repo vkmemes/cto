@@ -1,6 +1,6 @@
 {
-  "name": "STTEC Schedule",
-  "short_name": "STTEC",
+  "name": "ЯГК Schedule",
+  "short_name": "ЯГК",
   "description": "Расписание занятий для Ярославского строительного колледжа",
   "start_url": "/",
   "display": "standalone",

@@ -88,7 +88,7 @@ async def subscription_middleware(update: Update, context: ContextTypes.DEFAULT_
 def get_welcome_text(user_name: str) -> str:
     return (
         f"👋 Добро пожаловать, {user_name}!\n\n"
-        "📚 <b>STTEC Schedule</b> — ваш помощник в просмотре расписания занятий.\n\n"
+        "📚 <b>ЯГК Schedule</b> — ваш помощник в просмотре расписания занятий.\n\n"
         "✨ <b>Что умеет бот:</b>\n"
         "• Показывать расписание на сегодня, завтра и неделю\n"
         "• Учитывать замены и отмены пар\n"

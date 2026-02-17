@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Excel to schedule.json converter
-Converts Excel schedule from STTEC format to JSON format for STTEC Schedule system.
+Converts Excel schedule from ЯГК format to JSON format for ЯГК Schedule system.
 
 Supports loading from GitHub URL or local file.
 Implements FSM logic for detecting even/odd week patterns.
@@ -415,7 +415,7 @@ def main():
         print("    python excel_parser.py oit_2sem.xlsx")
         print("  From GitHub URL:")
         print("    python excel_parser.py https://raw.githubusercontent.com/user/repo/main/oit_2sem.xlsx")
-        print("\nOutput format compatible with STTEC Schedule system.")
+        print("\nOutput format compatible with ЯГК Schedule system.")
         sys.exit(1)
 
     source = sys.argv[1]

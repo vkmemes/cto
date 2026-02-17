@@ -53,6 +53,6 @@ logs/*.log
 Thumbs.db
 
 # Project specific
-sttec.db
+ygk.db
 test_*.py
 !test_setup.py

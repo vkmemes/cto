@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import NullPool
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///sttec.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///ygk.db")
 
 Base = declarative_base()
 
