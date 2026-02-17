@@ -1,395 +1,260 @@
 #!/usr/bin/env python3
-"""
-Excel to schedule.json converter - ЯГК Schedule Edition
-Converts Excel schedules from ЯГК format to JSON format for ЯГК Schedule system.
-
-Features:
-- Auto-detects and processes all .xlsx files in script directory
-- Merges data from multiple files into single schedule.json
-- Supports multiple sheets per file
-- Multiple groups per sheet
-
-Excel format:
-- Multiple sheets (one per course/specialty)
-- Multiple groups per sheet
-- Row structure: [Pair#] [Subject] ... [Teacher] ... [Room]
-- No numerator/denominator separation
-
-Usage:
-  python excel_to_schedule.py              # Auto-detect all .xlsx files
-  python excel_to_schedule.py file.xlsx    # Process specific file
-
-Optimized for 8GB RAM - processes files efficiently.
-"""
-
 import json
 import sys
 import re
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 try:
     import openpyxl
+    from openpyxl.cell import Cell
 except ImportError:
-    print("Error: openpyxl not installed. Run: pip install openpyxl")
+    print("❌ Ошибка: Библиотека openpyxl не установлена.")
+    print("👉 Выполните: pip install openpyxl")
     sys.exit(1)
 
+# --- КОНФИГУРАЦИЯ КОЛОНОК (A=1, B=2, F=6, I=9) ---
+COL_PAIR = 1    # Номер пары
+COL_SUBJ = 2    # Предмет
+COL_TEACH = 6   # Преподаватель
+COL_ROOM = 9    # Аудитория
+
+# --- ОТЛАДКА ---
+# Включи это, чтобы видеть лог по каждой строке в консоли
+DEBUG_MODE = True 
 
 def clean_text(text) -> str:
-    """Clean and normalize text."""
-    if text is None:
-        return ""
-    return str(text).strip()
+    """Убирает лишние пробелы и переносы"""
+    if text is None: return ""
+    text = str(text).strip()
+    return re.sub(r'\s+', ' ', text)
 
-
-def parse_group_header(cell_text: str) -> List[str]:
-    """
-    Parse group header like 'ИС1-11/ИС1-12' into list of groups.
-    Returns list of individual group names.
-    """
-    text = clean_text(cell_text)
-    if not text:
-        return []
-    
-    # Split by common separators
-    groups = re.split(r'[/\\,;|]+', text)
-    groups = [g.strip() for g in groups if g.strip()]
-    
-    # Normalize group names
-    normalized = []
-    for group in groups:
-        # Remove extra spaces
-        group = re.sub(r'\s+', ' ', group)
-        # Ensure pattern like ИС1-11
-        group = re.sub(r'([А-ЯA-Z]+)\s*(\d)', r'\1\2', group)
-        normalized.append(group)
-    
-    return normalized
-
-
-def is_day_name(cell_text: str) -> Optional[str]:
-    """
-    Check if text is a day name and return normalized day name.
-    Returns None if not a day.
-    """
-    text = clean_text(cell_text).lower()
-    if not text:
-        return None
-    
-    day_names = {
-        'понедельник': 'monday',
-        'вторник': 'tuesday',
-        'среда': 'wednesday',
-        'четверг': 'thursday',
-        'пятница': 'friday',
-        'суббота': 'saturday',
-        'воскресенье': 'sunday',
-        'пн': 'monday',
-        'вт': 'tuesday',
-        'ср': 'wednesday',
-        'чт': 'thursday',
-        'пт': 'friday',
-        'сб': 'saturday',
-        'вс': 'sunday',
-    }
-    
-    for rus, eng in day_names.items():
-        if rus in text:
-            return eng
-    
+def get_pair_number(value) -> Optional[int]:
+    """Извлекает номер пары (0, 1, 2...)"""
+    if value is None: return None
+    s = str(value).strip()
+    if s.isdigit(): return int(s)
+    match = re.match(r'^(\d+)', s) # Если там "1 пара"
+    if match: return int(match.group(1))
     return None
 
-
-def is_group_header(cell_text: str) -> bool:
-    """Check if cell contains a group header pattern like 'ИС1-11/ИС1-12'."""
-    text = clean_text(cell_text)
-    # Pattern: Cyrillic letters + digit + hyphen + digits
-    # May contain / for multiple groups
-    pattern = r'[А-ЯA-Z]+\d+[-–]\d+.*'
-    return bool(re.search(pattern, text))
-
-
-def is_pair_number(cell_text: str) -> Optional[int]:
-    """Check if cell contains a pair number (0-8)."""
-    text = clean_text(cell_text)
-    if text.isdigit():
-        num = int(text)
-        if 0 <= num <= 8:
-            return num
-    return None
-
-
-def parse_time_for_pair(pair_num: int) -> str:
-    """Get standard time for pair number."""
-    # Standard schedule times
-    times = {
-        0: "07:00-08:30",
-        1: "08:30-10:00",
-        2: "10:10-11:40",
-        3: "12:00-13:30",
-        4: "13:40-15:10",
-        5: "15:20-16:50",
-        6: "17:00-18:30",
-        7: "18:40-20:10",
-        8: "20:15-21:45",
-    }
-    return times.get(pair_num, f"{pair_num} пара")
-
-
-def split_multi_value(text: str) -> List[str]:
-    """Split text by newlines into multiple values."""
-    if not text:
-        return [""]
-    parts = text.split('\n')
-    parts = [p.strip() for p in parts if p.strip()]
-    return parts if parts else [""]
-
-
-def parse_lesson(subject: str, teacher: str, room: str, pair_num: int) -> Optional[Dict[str, Any]]:
-    """
-    Parse lesson data into structured format.
-    Handles multiple teachers/rooms separated by newlines.
-    """
-    subject = clean_text(subject)
-    if not subject:
-        return None
-    
-    teacher = clean_text(teacher)
-    room = clean_text(room)
-    
-    # Handle case when subject has multiple lines (subgroup lessons)
-    subjects = split_multi_value(subject)
-    teachers = split_multi_value(teacher)
-    rooms = split_multi_value(room)
-    
-    # If we have multiple subjects on same pair, create combined entry
-    if len(subjects) > 1:
-        # Multiple lessons at same time (subgroups)
-        return {
-            "pair_number": pair_num,
-            "time": parse_time_for_pair(pair_num),
-            "subject": subject,
-            "teacher": teacher,
-            "room": room,
-            "subgroups": True
-        }
-
-    return {
-        "pair_number": pair_num,
-        "time": parse_time_for_pair(pair_num),
-        "subject": subjects[0],
-        "teacher": teachers[0] if teachers else "",
-        "room": rooms[0] if rooms else "",
-        "subgroups": False
-    }
-
-
-def init_schedule_structure() -> Dict[str, Any]:
-    """Initialize empty schedule structure for a group."""
-    days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-    return {
-        "numerator": {day: [] for day in days},
-        "denominator": {day: [] for day in days}
-    }
-
-
-def parse_sheet(sheet) -> Dict[str, Dict[str, Any]]:
-    """
-    Parse a single sheet and return schedule for all groups on that sheet.
-    
-    Structure:
-    - Group header row (e.g., "ИС1-11/ИС1-12")
-    - Day header (e.g., "Понедельник")
-    - Lessons with pair number, subject, teacher, room
-    """
-    schedules = {}  # group_name -> schedule
-    current_groups = []
-    current_day = "monday"
-    
-    print(f"  Parsing sheet: {sheet.title} ({sheet.max_row} rows)")
-    
-    for row_idx, row in enumerate(sheet.iter_rows(min_row=1, max_row=sheet.max_row), start=1):
-        # Get key cell values
-        col1 = clean_text(row[0].value)  # Pair number or day or group header
-        col2 = clean_text(row[1].value) if len(row) > 1 else ""  # Subject
-        col6 = clean_text(row[5].value) if len(row) > 5 else ""  # Teacher
-        col9 = clean_text(row[8].value) if len(row) > 8 else ""  # Room
-        
-        # Check for group header
-        if is_group_header(col1) and not is_day_name(col1) and not is_pair_number(col1):
-            groups = parse_group_header(col1)
-            if groups:
-                current_groups = groups
-                for group in groups:
-                    if group not in schedules:
-                        schedules[group] = init_schedule_structure()
-                        print(f"    Found group: {group}")
-            continue
-        
-        # Check for day name
-        day = is_day_name(col1)
-        if day:
-            current_day = day
-            continue
-        
-        # Check for pair number and parse lesson
-        pair_num = is_pair_number(col1)
-        if pair_num and col2 and current_groups:
-            lesson = parse_lesson(col2, col6, col9, pair_num)
-            if lesson:
-                # Add to all current groups
-                for group in current_groups:
-                    # Add to both numerator and denominator (no separation in this format)
-                    if lesson not in schedules[group]["numerator"][current_day]:
-                        schedules[group]["numerator"][current_day].append(lesson)
-                    if lesson not in schedules[group]["denominator"][current_day]:
-                        schedules[group]["denominator"][current_day].append(lesson)
-    
-    return schedules
-
-
-def convert_excel_to_json(excel_path: str, all_schedules: Dict[str, Dict[str, Any]]) -> bool:
-    """
-    Convert Excel file and merge into existing schedule.
-
-    Args:
-        excel_path: Path to Excel file
-        all_schedules: Dictionary to merge parsed data into
-    """
-    print(f"Reading Excel file: {excel_path}")
-
-    try:
-        # Use read_only for memory efficiency (good for 8GB RAM)
-        workbook = openpyxl.load_workbook(excel_path, data_only=True, read_only=False)
-    except Exception as e:
-        print(f"Error loading Excel file: {e}")
+def is_group_header(text: str) -> bool:
+    """Это заголовок группы?"""
+    if not text: return False
+    # Исключаем дни недели
+    if any(d in text.lower() for d in ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота']):
         return False
+    # Ищем наличие букв и цифр (ИС1-21)
+    return bool(re.search(r'[А-ЯA-Z].*\d', text)) and len(text) < 50
 
-    # Process all sheets
-    for sheet_name in workbook.sheetnames:
-        sheet = workbook[sheet_name]
-        sheet_schedules = parse_sheet(sheet)
+def get_day_id(text: str) -> Optional[str]:
+    """Возвращает нормализованное название дня"""
+    if not text: return None
+    t = text.lower()
+    days = {
+        'понедельник': 'Понедельник', 'вторник': 'Вторник', 'среда': 'Среда',
+        'четверг': 'Четверг', 'пятница': 'Пятница', 'суббота': 'Суббота', 'воскресенье': 'Воскресенье'
+    }
+    for ru, normal in days.items():
+        if ru in t: return normal
+    return None
 
-        # Merge into global schedule
-        for group, schedule in sheet_schedules.items():
-            if group in all_schedules:
-                print(f"    Warning: Group {group} appears in multiple sheets, merging...")
-                # Merge lessons (avoid duplicates)
-                for week in ['numerator', 'denominator']:
-                    for day, lessons in schedule[week].items():
-                        existing = all_schedules[group][week][day]
-                        for lesson in lessons:
-                            if lesson not in existing:
-                                existing.append(lesson)
+def get_merged_range(sheet, row, col):
+    """Возвращает диапазон объединения, если ячейка входит в него, иначе None"""
+    cell = sheet.cell(row=row, column=col)
+    for merged in sheet.merged_cells.ranges:
+        if cell.coordinate in merged:
+            return merged
+    return None
+
+def get_val(sheet, row, col):
+    """
+    Умное получение значения. 
+    Если ячейка часть объединения, берет значение из левой верхней.
+    НО! Нам иногда нужно знать реальное значение конкретной ячейки (даже если она скрыта объединением).
+    Для openpyxl value есть только у левой верхней.
+    """
+    cell = sheet.cell(row=row, column=col)
+    # Если это просто ячейка
+    if cell.value is not None:
+        return clean_text(cell.value)
+    
+    # Если значение None, проверяем, не перекрыто ли оно объединением
+    merged = get_merged_range(sheet, row, col)
+    if merged:
+        # Берем значение из главной ячейки диапазона
+        val = sheet.cell(row=merged.min_row, column=merged.min_col).value
+        return clean_text(val)
+    
+    return ""
+
+def parse_sheet(sheet) -> Dict[str, Dict[str, List[Dict]]]:
+    print(f"  📄 Чтение листа: {sheet.title}...")
+    
+    sheet_schedule = {} # { "Группа": { "Понедельник": [] } }
+    current_groups = [] # Теперь это список из одной строки, например ["СА1-11/СА1-12"]
+    current_day = None
+    
+    row_idx = 1
+    max_row = sheet.max_row
+    
+    while row_idx <= max_row:
+        # Читаем "сырое" значение колонки A (без учета объединений для начала)
+        raw_cell_a = sheet.cell(row=row_idx, column=COL_PAIR)
+        val_a = clean_text(raw_cell_a.value)
+        
+        # --- 1. Поиск Группы ---
+        # Если это объединенная ячейка с текстом группы
+        # Берем значение через get_val, чтобы достать текст из merge
+        real_text_a = get_val(sheet, row_idx, COL_PAIR)
+        
+        if is_group_header(real_text_a):
+            # ВАЖНО: Берем название как есть, не сплитим по слэшам
+            # Убираем лишние переносы
+            group_name = real_text_a.replace('\n', ' ').strip()
+            current_groups = [group_name]
+            
+            # Инициализация
+            if group_name not in sheet_schedule:
+                sheet_schedule[group_name] = {}
+            
+            if DEBUG_MODE: print(f"📍 [Row {row_idx}] Найдена группа: {group_name}")
+            current_day = None
+            row_idx += 1
+            continue
+
+        # --- 2. Поиск Дня ---
+        day_name = get_day_id(real_text_a)
+        if day_name:
+            current_day = day_name
+            for g in current_groups:
+                if current_day not in sheet_schedule[g]:
+                    sheet_schedule[g][current_day] = []
+            if DEBUG_MODE: print(f"🗓 [Row {row_idx}] День: {current_day}")
+            row_idx += 1
+            continue
+
+        # --- 3. Поиск Пары ---
+        # Проверяем, есть ли номер пары в ячейке.
+        # ВАЖНО: Если ячейка объединена вертикально, то значение есть только в верхней строке.
+        # В нижней строке value будет None.
+        
+        # Получаем диапазон объединения для номера пары
+        merged_range_a = get_merged_range(sheet, row_idx, COL_PAIR)
+        
+        # Если мы попали на "нижнюю" часть объединенной ячейки номера (которая пустая),
+        # мы её пропускаем, так как обработали на шаге "верхней".
+        # Но наша логика ниже (jump +2) должна это предотвращать.
+        
+        # Определяем номер пары. Берем value именно этой ячейки.
+        pair_num = get_pair_number(raw_cell_a.value)
+        
+        if pair_num is not None and current_groups and current_day:
+            
+            # Определяем, сколько строк занимает эта пара
+            rows_span = 1
+            if merged_range_a:
+                # Считаем высоту объединения
+                rows_span = merged_range_a.max_row - merged_range_a.min_row + 1
+            
+            # Данные верхней строки (Четная / Еженедельная)
+            subj_top = get_val(sheet, row_idx, COL_SUBJ)
+            teach_top = get_val(sheet, row_idx, COL_TEACH)
+            room_top = get_val(sheet, row_idx, COL_ROOM)
+            
+            if rows_span >= 2:
+                # --- СЦЕНАРИЙ: Пара занимает 2 строки ---
+                # Проверяем, объединен ли ПРЕДМЕТ (Col B)
+                merged_range_b = get_merged_range(sheet, row_idx, COL_SUBJ)
+                
+                is_subject_merged = False
+                if merged_range_b:
+                    # Если предмет объединен на те же (или больше) строк, что и номер
+                    if (merged_range_b.max_row - merged_range_b.min_row + 1) >= 2:
+                        is_subject_merged = True
+
+                if is_subject_merged:
+                    # >>> ЕЖЕНЕДЕЛЬНО (И номер, и предмет объединены)
+                    if DEBUG_MODE: print(f"   [Row {row_idx}] Пара {pair_num}: ЕЖЕНЕДЕЛЬНО (Merged)")
+                    if subj_top:
+                        lesson = {"pair_num": pair_num, "type": "Еженедельно", "lesson": subj_top, "teacher": teach_top, "classroom": room_top}
+                        for g in current_groups: sheet_schedule[g][current_day].append(lesson)
+                
+                else:
+                    # >>> РАЗДЕЛЕНИЕ (Номер объединен, а предметы разные)
+                    # Верхняя строка (row_idx) = Четная
+                    # Нижняя строка (row_idx + 1) = Нечетная
+                    
+                    # Данные нижней строки
+                    subj_bot = get_val(sheet, row_idx + 1, COL_SUBJ)
+                    teach_bot = get_val(sheet, row_idx + 1, COL_TEACH)
+                    room_bot = get_val(sheet, row_idx + 1, COL_ROOM)
+
+                    if DEBUG_MODE: print(f"   [Row {row_idx}] Пара {pair_num}: РАЗДЕЛЕНИЕ")
+                    
+                    # Добавляем Четную (Верх)
+                    if subj_top:
+                        if DEBUG_MODE: print(f"     -> Четная: {subj_top}")
+                        l_even = {"pair_num": pair_num, "type": "Четная", "lesson": subj_top, "teacher": teach_top, "classroom": room_top}
+                        for g in current_groups: sheet_schedule[g][current_day].append(l_even)
+                    
+                    # Добавляем Нечетную (Низ)
+                    if subj_bot:
+                        if DEBUG_MODE: print(f"     -> Нечетная: {subj_bot}")
+                        l_odd = {"pair_num": pair_num, "type": "Нечетная", "lesson": subj_bot, "teacher": teach_bot, "classroom": room_bot}
+                        for g in current_groups: sheet_schedule[g][current_day].append(l_odd)
+
+                # Пропускаем столько строк, сколько занимал номер пары
+                row_idx += rows_span
+            
             else:
-                all_schedules[group] = schedule
+                # --- СЦЕНАРИЙ: Пара занимает 1 строку ---
+                # Это обычная Еженедельная пара
+                if DEBUG_MODE: print(f"   [Row {row_idx}] Пара {pair_num}: ЕЖЕНЕДЕЛЬНО (Single)")
+                if subj_top:
+                    lesson = {"pair_num": pair_num, "type": "Еженедельно", "lesson": subj_top, "teacher": teach_top, "classroom": room_top}
+                    for g in current_groups: sheet_schedule[g][current_day].append(lesson)
+                
+                row_idx += 1
+            
+            continue
 
-    workbook.close()
-
-    return True
-
-
-def save_schedule_to_json(all_schedules: Dict[str, Dict[str, Any]], output_path: str = 'schedule.json') -> bool:
-    """
-    Save merged schedule to JSON file.
-
-    Args:
-        all_schedules: Complete schedule data
-        output_path: Path to output JSON file
-    """
-    if not all_schedules:
-        print("Error: No schedule data to save")
-        return False
-
-    # Wrap in groups object
-    output = {"groups": all_schedules}
-
-    # Save to JSON
-    print(f"\nSaving to {output_path}...")
-    try:
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(output, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"Error saving JSON: {e}")
-        return False
-
-    # Print statistics
-    total_groups = len(all_schedules)
-    total_lessons = 0
-    for group_name, group_data in all_schedules.items():
-        for week in ['numerator', 'denominator']:
-            for day in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']:
-                total_lessons += len(group_data[week][day])
-
-    print(f"\n✅ Conversion complete!")
-    print(f"   Groups: {total_groups}")
-    print(f"   Total lessons: {total_lessons}")
-    print(f"   Output: {output_path}")
-
-    return True
-
+        # Пустая строка или мусор
+        row_idx += 1
+        
+    return sheet_schedule
 
 def main():
-    """Main entry point."""
-    # Get script directory
+    # ... (стандартный код поиска файлов и сохранения) ...
     script_dir = Path(__file__).parent
-
-    # Check if specific file was provided
-    if len(sys.argv) >= 2:
-        excel_path = sys.argv[1]
-        output_path = sys.argv[2] if len(sys.argv) > 2 else 'schedule.json'
-
-        if not Path(excel_path).exists():
-            print(f"Error: File not found: {excel_path}")
-            sys.exit(1)
-
-        # Single file mode
-        all_schedules = {}
-        success = convert_excel_to_json(excel_path, all_schedules)
-        if success:
-            save_schedule_to_json(all_schedules, output_path)
-        sys.exit(0 if success else 1)
-
-    # Auto-detect all Excel files in script directory
-    print("Auto-detecting Excel files in script directory...\n")
-
-    excel_files = sorted(script_dir.glob('*.xlsx'))
-
-    if not excel_files:
-        print("Error: No Excel files found in script directory")
+    files = sorted(script_dir.glob('*.xlsx'))
+    
+    if not files:
+        print("❌ .xlsx файлы не найдены!")
         sys.exit(1)
+        
+    final_schedule = {}
+    
+    for excel_file in files:
+        if excel_file.name.startswith("~"): continue
+        print(f"\n📂 Обработка файла: {excel_file.name}")
+        
+        try:
+            wb = openpyxl.load_workbook(excel_file, data_only=True)
+            for sheet_name in wb.sheetnames:
+                sheet_data = parse_sheet(wb[sheet_name])
+                # Простое слияние словарей
+                final_schedule.update(sheet_data)
+            wb.close()
+        except Exception as e:
+            print(f"❌ Ошибка: {e}")
 
-    print(f"Found {len(excel_files)} Excel file(s):")
-    for f in excel_files:
-        print(f"  - {f.name}")
-    print()
-
-    # Process all files
-    all_schedules = {}
-    processed_count = 0
-
-    for excel_file in excel_files:
-        print(f"\n{'='*60}")
-        print(f"Processing: {excel_file.name}")
-        print('='*60)
-        if convert_excel_to_json(str(excel_file), all_schedules):
-            processed_count += 1
-            print(f"✓ Successfully processed {excel_file.name}")
-        else:
-            print(f"✗ Failed to process {excel_file.name}")
-
-    # Save merged schedule
-    if processed_count > 0:
-        output_path = 'schedule.json'
-        print(f"\n{'='*60}")
-        print(f"Saving merged schedule from {processed_count} file(s)...")
-        print('='*60)
-        save_schedule_to_json(all_schedules, output_path)
-        sys.exit(0)
-    else:
-        print("Error: No files were successfully processed")
-        sys.exit(1)
-
+    output_path = script_dir / 'schedule.json'
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(final_schedule, f, ensure_ascii=False, indent=4)
+        
+    print(f"\n💾 Сохранено в: {output_path}")
 
 if __name__ == "__main__":
     main()

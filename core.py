@@ -266,28 +266,39 @@ class ScheduleManager:
         if weekday >= 5:
             return DaySchedule(date_str=date_str, lessons=[], is_weekend=True)
 
-        weekday_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        # Russian day names match the schedule.json structure
+        weekday_names = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
         day_name = weekday_names[weekday]
 
         week_parity = self.get_week_parity(target_date)
 
         group_data = self.base_schedule["groups"].get(group_key, {})
-        schedule_data = group_data.get(week_parity, {}).get(day_name, [])
+        # Schedule data is stored directly under day name (Russian), not under week_parity
+        day_schedule = group_data.get(day_name, [])
 
+        # Filter lessons based on type (Еженедельно=every week, Четная=even, Нечетная=odd)
         lessons = []
-        for idx, lesson_dict in enumerate(schedule_data):
+        for idx, lesson_dict in enumerate(day_schedule):
+            lesson_type = lesson_dict.get("type", "Еженедельно")
+            
+            # Filter by week type
+            if lesson_type == "Четная" and week_parity != "denominator":
+                continue  # Skip - only for even weeks
+            if lesson_type == "Нечетная" and week_parity != "numerator":
+                continue  # Skip - only for odd weeks
+            
             time_str = lesson_dict.get("time", "")
-            pair_number = get_pair_number_from_time(time_str)
+            pair_number = lesson_dict.get("pair_num", 0)
             if pair_number == 0:
-                # Fallback to index-based numbering if time parsing fails
+                # Fallback to index-based numbering if parsing fails
                 pair_number = idx + 1
 
             lessons.append(Lesson(
                 pair_number=pair_number,
                 time=time_str,
-                subject=lesson_dict.get("subject", ""),
+                subject=lesson_dict.get("lesson", ""),
                 teacher=lesson_dict.get("teacher", ""),
-                room=lesson_dict.get("room", ""),
+                room=lesson_dict.get("classroom", ""),
                 is_replaced=False,
                 is_canceled=False,
                 color_class="default"

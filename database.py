@@ -6,6 +6,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import NullPool
 
+# Support both SQLite and PostgreSQL
+# For PostgreSQL: postgresql+asyncpg://user:pass@localhost/ygk
+# For SQLite: sqlite+aiosqlite:///ygk.db
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///ygk.db")
 
 Base = declarative_base()
@@ -59,12 +62,25 @@ class Homework(Base):
 
 class Database:
     def __init__(self, url: str = DATABASE_URL):
-        self.engine = create_async_engine(
-            url,
-            echo=False,
-            poolclass=NullPool,
-            pool_pre_ping=True
-        )
+        # Configure engine based on database type
+        if "postgresql" in url:
+            # PostgreSQL: use real connection pooling
+            self.engine = create_async_engine(
+                url,
+                echo=False,
+                pool_size=10,
+                max_overflow=20,
+                pool_pre_ping=True
+            )
+        else:
+            # SQLite: use NullPool for better compatibility
+            self.engine = create_async_engine(
+                url,
+                echo=False,
+                poolclass=NullPool,
+                pool_pre_ping=True
+            )
+        
         self.async_session = async_sessionmaker(
             self.engine,
             class_=AsyncSession,
