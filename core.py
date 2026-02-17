@@ -36,7 +36,7 @@ class ScheduleManager:
         self.replacements_cache_time: Optional[datetime] = None
         self.cache_ttl_seconds = 300
         self._replacement_lock = asyncio.Lock()
-        self._http_client = httpx.AsyncClient(timeout=10.0)
+        self._http_client = httpx.AsyncClient(timeout=10.0, verify=False)
         
         self.load_base_schedule()
     
@@ -134,11 +134,12 @@ class ScheduleManager:
                 response = await self._http_client.get(self.replacement_url)
                 response.raise_for_status()
                 html = response.text
-                
+
                 replacements = self.parse_replacements_html(html)
                 self.replacements_cache = replacements
                 self.replacements_index = self._build_replacements_index(replacements)
                 self.replacements_cache_time = datetime.now()
+                print(f"Successfully fetched and parsed {len(replacements)} group replacements")
                 return replacements
             except Exception as e:
                 print(f"Error fetching replacements: {e}")
