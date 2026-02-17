@@ -263,7 +263,8 @@ class ScheduleManager:
 
         # Get base schedule first
         weekday = target_date.weekday()
-        if weekday >= 5:
+        # Only Sunday (6) is a full weekend in Russian schools - Saturday can have classes
+        if weekday >= 6:
             return DaySchedule(date_str=date_str, lessons=[], is_weekend=True)
 
         # Russian day names match the schedule.json structure
