@@ -110,11 +110,11 @@ def is_group_header(cell_text: str) -> bool:
 
 
 def is_pair_number(cell_text: str) -> Optional[int]:
-    """Check if cell contains a pair number (1-8)."""
+    """Check if cell contains a pair number (0-8)."""
     text = clean_text(cell_text)
     if text.isdigit():
         num = int(text)
-        if 1 <= num <= 8:
+        if 0 <= num <= 8:
             return num
     return None
 
@@ -123,6 +123,7 @@ def parse_time_for_pair(pair_num: int) -> str:
     """Get standard time for pair number."""
     # Standard schedule times
     times = {
+        0: "07:00-08:30",
         1: "08:30-10:00",
         2: "10:10-11:40",
         3: "12:00-13:30",
@@ -165,14 +166,16 @@ def parse_lesson(subject: str, teacher: str, room: str, pair_num: int) -> Option
     if len(subjects) > 1:
         # Multiple lessons at same time (subgroups)
         return {
+            "pair_number": pair_num,
             "time": parse_time_for_pair(pair_num),
             "subject": subject,
             "teacher": teacher,
             "room": room,
             "subgroups": True
         }
-    
+
     return {
+        "pair_number": pair_num,
         "time": parse_time_for_pair(pair_num),
         "subject": subjects[0],
         "teacher": teachers[0] if teachers else "",
