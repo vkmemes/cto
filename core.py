@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 STOP_WORDS_CANCEL = ["снято", "отменено", "нет пары"]
 
 class Lesson(BaseModel):
+    pair_number: int = 0
     time: str
     subject: str
     teacher: str
@@ -185,6 +186,7 @@ class ScheduleManager:
                 color_class = "red" if is_canceled else "yellow"
                 
                 lessons_data.append({
+                    "pair_number": len(lessons_data) + 1,
                     "time": time,
                     "subject": subject,
                     "teacher": teacher,
@@ -244,6 +246,7 @@ class ScheduleManager:
         lessons = []
         for lesson_dict in schedule_data:
             lessons.append(Lesson(
+                pair_number=lesson_dict.get("pair_number", 0),
                 time=lesson_dict.get("time", ""),
                 subject=lesson_dict.get("subject", ""),
                 teacher=lesson_dict.get("teacher", ""),
@@ -278,10 +281,10 @@ class ScheduleManager:
             return f"📅 {day_schedule.date_str}\n❌ Нет пар"
         
         lines = [f"📅 {day_schedule.date_str}\n"]
-        
-        for i, lesson in enumerate(day_schedule.lessons, 1):
+
+        for lesson in day_schedule.lessons:
             emoji = "🔴" if lesson.is_canceled else ("🟡" if lesson.is_replaced else "🔵")
-            lines.append(f"{emoji} {i}. {lesson.time}")
+            lines.append(f"{emoji} {lesson.pair_number}. {lesson.time}")
             lines.append(f"   {lesson.subject}")
             if lesson.teacher:
                 lines.append(f"   👨‍🏫 {lesson.teacher}")
