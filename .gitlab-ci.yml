@@ -1,0 +1,63 @@
+stages:
+  - test
+  - deploy
+
+variables:
+  PROJECT_DIR: "/opt/ygk"
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+
+# Test stage
+test:
+  stage: test
+  image: python:3.11-slim
+  before_script:
+    - pip install -r requirements.txt
+  script:
+    - python -m py_compile bot_main.py web_main.py core.py database.py
+    - python -c "import core; import database; print('Imports OK')"
+  only:
+    - main
+    - merge_requests
+
+# Deploy to production
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client rsync
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
+  script:
+    - echo "Starting deployment to $SERVER_HOST..."
+    
+    # Sync files excluding sensitive data
+    - rsync -avz --delete
+        --exclude='.git'
+        --exclude='venv'
+        --exclude='__pycache__'
+        --exclude='*.pyc'
+        --exclude='.env'
+        --exclude='ygk.db'
+        --exclude='logs/'
+        --exclude='backups/'
+        ./ "$SERVER_USER@$SERVER_HOST:$PROJECT_DIR/"
+    
+    # Run deployment script
+    - ssh "$SERVER_USER@$SERVER_HOST" "cd $PROJECT_DIR && ./deploy/deploy.sh"
+    
+    # Verify deployment
+    - ssh "$SERVER_USER@$SERVER_HOST" "
+        systemctl is-active ygk-bot && echo 'Bot OK' || exit 1;
+        systemctl is-active ygk-web && echo 'Web OK' || exit 1;
+      "
+  only:
+    - main
+  environment:
+    name: production
+    url: http://$SERVER_HOST:8000

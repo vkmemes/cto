@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    image: ghcr.io/yourusername/ygk-schedule:latest
+    container_name: ygk-bot
+    command: python bot_main.py
+    env_file: .env
+    volumes:
+      - ./ygk.db:/app/ygk.db
+      - ./logs:/app/logs
+      - ./schedule.json:/app/schedule.json
+    restart: unless-stopped
+    networks:
+      - ygk-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    build: .
+    image: ghcr.io/yourusername/ygk-schedule:latest
+    container_name: ygk-web
+    command: python web_main.py
+    env_file: .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ygk.db:/app/ygk.db
+      - ./logs:/app/logs
+      - ./schedule.json:/app/schedule.json
+      - ./templates:/app/templates
+    restart: unless-stopped
+    networks:
+      - ygk-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  ygk-network:
+    driver: bridge

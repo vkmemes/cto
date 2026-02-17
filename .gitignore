@@ -57,3 +57,4 @@ ygk.db
 test_*.py
 !test_setup.py
 test_*.html
+backups/
