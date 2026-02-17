@@ -4,14 +4,14 @@
 
 ---
 
-### Промпт для другой нейросети: "Полное описание проекта STTEC Schedule"
+### Промпт для другой нейросети: "Полное описание проекта ЯГК Schedule"
 
-**Цель:** Восстановить или доработать систему "STTEC Schedule" — веб-сайт и Telegram-бот для просмотра расписания Ярославского градостроительного колледжа с учетом ежедневных замен.
+**Цель:** Восстановить или доработать систему "ЯГК Schedule" — веб-сайт и Telegram-бот для просмотра расписания Ярославского градостроительного колледжа с учетом ежедневных замен.
 
 **Стек технологий:**
 *   **Backend:** Python 3.10+, Starlette, Uvicorn, SQLAlchemy (асинхронно с `aiosqlite`).
 *   **Frontend:** HTML5, Tailwind CSS (через CDN), JavaScript (Vanilla).
-*   **База данных:** SQLite (файл `sttec.db`).
+*   **База данных:** SQLite (файл `ygk.db`).
 *   **Бот:** `python-telegram-bot` (Polling).
 *   **Инфраструктура:** Linux-сервер (Ubuntu/Debian) с `systemd` для управления процессами.
 
@@ -32,7 +32,7 @@
         *   **`get_schedule()`**: Принимает `group_name` и `date`. Сначала берет базу из `schedule.json`, фильтрует по типу недели, а затем **накладывает** замены из кэша, если даты совпадают. Корректно обрабатывает группы со слэшем (`ИС1-11/ИС1-12`).
 
 2.  **`database.py` (Память):**
-    *   **Ответственность:** Всё взаимодействие с базой данных `sttec.db`.
+    *   **Ответственность:** Всё взаимодействие с базой данных `ygk.db`.
     *   **Технология:** SQLAlchemy 2.0 (asyncio) + `aiosqlite`.
     *   **Таблицы (ORM Модели):**
         *   `User`: Хранит `telegram_id`, `username`, `group_name`, `role` ('student'/'headman'/'admin'), флаги `is_active` и `last_notify_date` (для защиты от спама).
@@ -80,7 +80,7 @@
 *   **`TOKEN` (в `bot_main.py` и `web_main.py`):** Токен Telegram бота.
 *   **`ADMIN_ID` (в `bot_main.py`):** Твой Telegram ID для доступа к админ-командам.
 *   **`REQUIRED_CHANNELS` (в `bot_main.py`):** Список каналов для обязательной подписки (например, `["@my_channel"]`).
-*   **`DATABASE_URL` (в `database.py`):** Путь к файлу базы данных, `sqlite+aiosqlite:///sttec.db`.
+*   **`DATABASE_URL` (в `database.py`):** Путь к файлу базы данных, `sqlite+aiosqlite:///ygk.db`.
 *   **`SCHEDULE_FILE` (в `core.py`):** Имя файла с базовым расписанием.
 *   **`REPLACEMENTS_URLS` (в `core.py`):** Ссылки на страницы замен.
 *   **`BOT_USERNAME` (в `web_main.py`):** Юзернейм бота без `@` для Deep Link ссылок.
@@ -91,12 +91,12 @@
 
 1.  **Настройка сервера:** Ubuntu/Debian. Установить Python 3.10+, `pip`, `sqlite3`.
 2.  **Swap:** Обязательно включить Swap-файл (минимум 2 ГБ), если ОЗУ мало.
-3.  **Загрузка файлов:** Скопировать все файлы проекта в `/root/sttec_project/`.
+3.  **Загрузка файлов:** Скопировать все файлы проекта в `/root/ygk_project/`.
 4.  **Установка библиотек:** `pip3 install -r requirements.txt`.
 5.  **Миграция БД:** `python3 migrate.py`.
-6.  **Настройка `systemd`:** Создать два сервиса (`sttec-bot.service`, `sttec-web.service`), указав правильные пути к `WorkingDirectory` и `ExecStart`.
-7.  **Запуск:** `sudo systemctl daemon-reload && sudo systemctl enable --now sttec-bot sttec-web`.
-8.  **Логи:** `journalctl -u sttec-bot -f` и `journalctl -u sttec-web -f`.
+6.  **Настройка `systemd`:** Создать два сервиса (`ygk-bot.service`, `ygk-web.service`), указав правильные пути к `WorkingDirectory` и `ExecStart`.
+7.  **Запуск:** `sudo systemctl daemon-reload && sudo systemctl enable --now ygk-bot ygk-web`.
+8.  **Логи:** `journalctl -u ygk-bot -f` и `journalctl -u ygk-web -f`.
 
 **Если я переезжаю на хостинг с 8GB RAM, мне нужно что-то менять?**
 Да. Это открывает возможность для **Level 4** апгрейда.

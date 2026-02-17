@@ -2,7 +2,7 @@
 
 ## Описание
 
-Утилита `excel_to_schedule.py` конвертирует расписание из Excel формата в JSON формат для системы STTEC Schedule.
+Утилита `excel_to_schedule.py` конвертирует расписание из Excel формата в JSON формат для системы ЯГК Schedule.
 
 ## ✅ Проверка совместимости
 
@@ -231,7 +231,7 @@ cp schedule.json schedule_backup.json
 python excel_to_schedule.py oit_2sem.xlsx schedule.json
 
 # Перезапустить сервисы
-sudo systemctl restart sttec-bot sttec-web
+sudo systemctl restart ygk-bot ygk-web
 ```
 
 ## Проверка результата
@@ -438,4 +438,4 @@ analyze_schedule('schedule.json')
 
 **Версия:** 2.0  
 **Дата:** 16 февраля 2026  
-**Автор:** STTEC Schedule Team
+**Автор:** ЯГК Schedule Team

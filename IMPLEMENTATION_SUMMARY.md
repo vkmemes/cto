@@ -1,8 +1,8 @@
-# STTEC Schedule - Implementation Summary
+# ЯГК Schedule - Implementation Summary
 
 ## ✅ Implementation Complete
 
-This document summarizes the complete implementation of the STTEC Schedule system based on the specifications provided in `Gemini.md`, `gemini2.md`, and `Geminifinal.md`.
+This document summarizes the complete implementation of the ЯГК Schedule system based on the specifications provided in `Gemini.md`, `gemini2.md`, and `Geminifinal.md`.
 
 ---
 
@@ -158,12 +158,12 @@ This document summarizes the complete implementation of the STTEC Schedule syste
    - Numerator/denominator weeks
    - Ready to customize
 
-5. **`sttec-bot.service`**
+5. **`ygk-bot.service`**
    - systemd service file for bot
    - Auto-restart enabled
    - Log redirection
 
-6. **`sttec-web.service`**
+6. **`ygk-web.service`**
    - systemd service file for web
    - Auto-restart enabled
    - Log redirection
@@ -365,7 +365,7 @@ sudo apt install python3-venv python3-pip
 ### 2. Installation
 ```bash
 # Clone/copy project files to server
-cd /opt/sttec
+cd /opt/ygk
 
 # Create virtual environment
 python3 -m venv venv
@@ -386,7 +386,7 @@ nano .env
 
 Required values:
 - `BOT_TOKEN` - from @BotFather
-- `CHANNEL_USERNAME` - your channel (e.g., @sttec_channel)
+- `CHANNEL_USERNAME` - your channel (e.g., @ygk_channel)
 - `REPLACEMENT_URL` - HTML page with replacements
 
 ### 4. Database Setup
@@ -427,20 +427,20 @@ python web_main.py
 **Production Mode (systemd):**
 ```bash
 # Copy service files
-sudo cp sttec-*.service /etc/systemd/system/
+sudo cp ygk-*.service /etc/systemd/system/
 
 # Edit paths in service files
-sudo nano /etc/systemd/system/sttec-bot.service
-sudo nano /etc/systemd/system/sttec-web.service
+sudo nano /etc/systemd/system/ygk-bot.service
+sudo nano /etc/systemd/system/ygk-web.service
 
 # Start services
 sudo systemctl daemon-reload
-sudo systemctl enable sttec-bot sttec-web
-sudo systemctl start sttec-bot sttec-web
+sudo systemctl enable ygk-bot ygk-web
+sudo systemctl start ygk-bot ygk-web
 
 # Check status
-sudo systemctl status sttec-bot
-sudo systemctl status sttec-web
+sudo systemctl status ygk-bot
+sudo systemctl status ygk-web
 ```
 
 ### 8. Testing
@@ -468,8 +468,8 @@ tail -f logs/bot.log
 tail -f logs/web.log
 
 # Or with systemd
-sudo journalctl -u sttec-bot -f
-sudo journalctl -u sttec-web -f
+sudo journalctl -u ygk-bot -f
+sudo journalctl -u ygk-web -f
 ```
 
 ---

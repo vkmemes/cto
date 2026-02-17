@@ -1,4 +1,4 @@
-STTEC Schedule System - Complete File Listing
+ЯГК Schedule System - Complete File Listing
 ==============================================
 
 Core Python Files:
@@ -26,8 +26,8 @@ Configuration Files:
 
 Deployment Files:
 -----------------
- sttec-bot.service          - systemd service for bot
- sttec-web.service          - systemd service for web
+ ygk-bot.service          - systemd service for bot
+ ygk-web.service          - systemd service for web
 
 Documentation:
 --------------

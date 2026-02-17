@@ -139,7 +139,7 @@
   python -c "import json; print(len(json.load(open('schedule.json'))['groups']), 'groups')"
 
   1. Конвертировать Excel → schedule.json
-  2. Перезапустить сервисы: sudo systemctl restart sttec-bot sttec-web
+  2. Перезапустить сервисы: sudo systemctl restart ygk-bot ygk-web
   3. Проверить через бота: /today
 
 
@@ -202,7 +202,7 @@
 
  ВЫВОДЫ
 
-1. ✅ Парсер ПОЛНОСТЬЮ СОВМЕСТИМ с системой STTEC Schedule
+1. ✅ Парсер ПОЛНОСТЬЮ СОВМЕСТИМ с системой ЯГК Schedule
 2. ✅ Успешно обрабатывает 32 группы по 6 дням
 3. ✅ Поддерживает числитель/знаменатель
 4. ✅ Интегрируется с core.py без изменений

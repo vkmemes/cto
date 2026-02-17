@@ -1,4 +1,4 @@
-# STTEC Schedule - Deployment Checklist
+# ЯГК Schedule - Deployment Checklist
 
 ## 📋 Pre-Deployment Checklist
 
@@ -14,7 +14,7 @@
 ### Telegram Setup
 - [ ] Telegram bot created via @BotFather
 - [ ] Bot token obtained and saved securely
-- [ ] Bot username decided (e.g., @sttec_schedule_bot)
+- [ ] Bot username decided (e.g., @ygk_schedule_bot)
 - [ ] Bot commands configured in @BotFather:
   ```
   start - Начать работу и выбрать группу
@@ -24,7 +24,7 @@
   setpin - Установить PIN-код группы
   ```
 - [ ] Channel created for subscription requirement
-- [ ] Channel username set (e.g., @sttec_channel)
+- [ ] Channel username set (e.g., @ygk_channel)
 - [ ] Bot added as admin to channel
 
 ### Data Preparation
@@ -48,9 +48,9 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install python3 python3-venv python3-pip git -y
 
 # Create application directory
-sudo mkdir -p /opt/sttec
-sudo chown $USER:$USER /opt/sttec
-cd /opt/sttec
+sudo mkdir -p /opt/ygk
+sudo chown $USER:$USER /opt/ygk
+cd /opt/ygk
 ```
 - [ ] System updated
 - [ ] Python installed
@@ -62,7 +62,7 @@ cd /opt/sttec
 git clone <repository-url> .
 
 # Option B: Manual copy
-scp -r /path/to/sttec/* user@server:/opt/sttec/
+scp -r /path/to/ygk/* user@server:/opt/ygk/
 ```
 - [ ] All files transferred
 - [ ] File permissions correct
@@ -70,7 +70,7 @@ scp -r /path/to/sttec/* user@server:/opt/sttec/
 
 ### Step 3: Virtual Environment
 ```bash
-cd /opt/sttec
+cd /opt/ygk
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
@@ -92,9 +92,9 @@ nano .env
 Set these values:
 ```env
 BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
-CHANNEL_USERNAME=@sttec_channel
+CHANNEL_USERNAME=@ygk_channel
 REPLACEMENT_URL=https://example.com/replacements.html
-DATABASE_URL=sqlite+aiosqlite:///sttec.db
+DATABASE_URL=sqlite+aiosqlite:///ygk.db
 WEB_PORT=8000
 ```
 - [ ] .env file created
@@ -131,7 +131,7 @@ Tables created:
   - homework
 ```
 - [ ] Migration successful
-- [ ] Database file created (sttec.db)
+- [ ] Database file created (ygk.db)
 - [ ] All 5 tables created
 
 ### Step 7: Verification
@@ -188,7 +188,7 @@ python web_main.py
 curl "http://localhost:8000/api/schedule?group=ИС1-11"
 
 # Test web page
-curl http://localhost:8000/ | grep "STTEC Schedule"
+curl http://localhost:8000/ | grep "ЯГК Schedule"
 ```
 - [ ] Schedule API returns JSON
 - [ ] Web pages load
@@ -197,36 +197,36 @@ curl http://localhost:8000/ | grep "STTEC Schedule"
 ### Step 10: Production Setup (systemd)
 ```bash
 # Edit service files with correct paths
-nano sttec-bot.service
-nano sttec-web.service
+nano ygk-bot.service
+nano ygk-web.service
 
 # Change these lines:
-# WorkingDirectory=/opt/sttec
-# Environment="PATH=/opt/sttec/venv/bin"
-# EnvironmentFile=/opt/sttec/.env
-# ExecStart=/opt/sttec/venv/bin/python bot_main.py
+# WorkingDirectory=/opt/ygk
+# Environment="PATH=/opt/ygk/venv/bin"
+# EnvironmentFile=/opt/ygk/.env
+# ExecStart=/opt/ygk/venv/bin/python bot_main.py
 
 # Copy to systemd
-sudo cp sttec-bot.service /etc/systemd/system/
-sudo cp sttec-web.service /etc/systemd/system/
+sudo cp ygk-bot.service /etc/systemd/system/
+sudo cp ygk-web.service /etc/systemd/system/
 
 # Set permissions
-sudo chmod 644 /etc/systemd/system/sttec-*.service
+sudo chmod 644 /etc/systemd/system/ygk-*.service
 
 # Reload systemd
 sudo systemctl daemon-reload
 
 # Enable services
-sudo systemctl enable sttec-bot
-sudo systemctl enable sttec-web
+sudo systemctl enable ygk-bot
+sudo systemctl enable ygk-web
 
 # Start services
-sudo systemctl start sttec-bot
-sudo systemctl start sttec-web
+sudo systemctl start ygk-bot
+sudo systemctl start ygk-web
 
 # Check status
-sudo systemctl status sttec-bot
-sudo systemctl status sttec-web
+sudo systemctl status ygk-bot
+sudo systemctl status ygk-web
 ```
 - [ ] Service files edited with correct paths
 - [ ] Services copied to systemd
@@ -241,7 +241,7 @@ sudo systemctl status sttec-web
 sudo apt install nginx -y
 
 # Create config
-sudo nano /etc/nginx/sites-available/sttec
+sudo nano /etc/nginx/sites-available/ygk
 ```
 
 Nginx config:
@@ -261,7 +261,7 @@ server {
 
 ```bash
 # Enable site
-sudo ln -s /etc/nginx/sites-available/sttec /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/ygk /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -290,20 +290,20 @@ sudo certbot renew --dry-run
 ### Step 13: Monitoring Setup
 ```bash
 # View logs in real-time
-sudo journalctl -u sttec-bot -f
-sudo journalctl -u sttec-web -f
+sudo journalctl -u ygk-bot -f
+sudo journalctl -u ygk-web -f
 
 # Or log files
-tail -f /opt/sttec/logs/bot.log
-tail -f /opt/sttec/logs/web.log
+tail -f /opt/ygk/logs/bot.log
+tail -f /opt/ygk/logs/web.log
 
 # Create log rotation
-sudo nano /etc/logrotate.d/sttec
+sudo nano /etc/logrotate.d/ygk
 ```
 
 Logrotate config:
 ```
-/opt/sttec/logs/*.log {
+/opt/ygk/logs/*.log {
     daily
     rotate 7
     compress
@@ -311,7 +311,7 @@ Logrotate config:
     notifempty
     missingok
     postrotate
-        systemctl reload sttec-bot sttec-web
+        systemctl reload ygk-bot ygk-web
     endscript
 }
 ```
@@ -322,19 +322,19 @@ Logrotate config:
 ### Step 14: Backup Strategy
 ```bash
 # Database backup script
-cat > /opt/sttec/backup.sh << 'SCRIPT'
+cat > /opt/ygk/backup.sh << 'SCRIPT'
 #!/bin/bash
 DATE=$(date +%Y%m%d_%H%M%S)
-cp /opt/sttec/sttec.db /opt/sttec/backups/sttec_$DATE.db
-find /opt/sttec/backups -name "sttec_*.db" -mtime +7 -delete
+cp /opt/ygk/ygk.db /opt/ygk/backups/ygk_$DATE.db
+find /opt/ygk/backups -name "ygk_*.db" -mtime +7 -delete
 SCRIPT
 
-chmod +x /opt/sttec/backup.sh
-mkdir -p /opt/sttec/backups
+chmod +x /opt/ygk/backup.sh
+mkdir -p /opt/ygk/backups
 
 # Add to crontab
 crontab -e
-# Add: 0 2 * * * /opt/sttec/backup.sh
+# Add: 0 2 * * * /opt/ygk/backup.sh
 ```
 - [ ] Backup script created
 - [ ] Backup directory created
@@ -399,15 +399,15 @@ ps aux | grep python
 ### Reliability Tests
 ```bash
 # Test auto-restart
-sudo systemctl stop sttec-bot
+sudo systemctl stop ygk-bot
 sleep 10
-sudo systemctl status sttec-bot
+sudo systemctl status ygk-bot
 # Should show "active (running)"
 
 # Test after reboot
 sudo reboot
 # Wait and check
-sudo systemctl status sttec-bot sttec-web
+sudo systemctl status ygk-bot ygk-web
 ```
 - [ ] Services auto-restart
 - [ ] Services start on boot
@@ -445,7 +445,7 @@ sudo systemctl status sttec-bot sttec-web
 
 ### Bot Not Starting
 ```bash
-sudo journalctl -u sttec-bot -n 50
+sudo journalctl -u ygk-bot -n 50
 # Check for:
 # - Import errors
 # - Token errors
@@ -454,7 +454,7 @@ sudo journalctl -u sttec-bot -n 50
 
 ### Web Not Accessible
 ```bash
-sudo systemctl status sttec-web
+sudo systemctl status ygk-web
 netstat -tulpn | grep 8000
 # Check if port is listening
 ```
@@ -481,7 +481,7 @@ free -h
 # Check swap
 swapon --show
 # Restart services
-sudo systemctl restart sttec-bot sttec-web
+sudo systemctl restart ygk-bot ygk-web
 ```
 
 ---
@@ -489,9 +489,9 @@ sudo systemctl restart sttec-bot sttec-web
 ## 📞 Support Contacts
 
 - **Documentation:** README.md, QUICKSTART.md, ARCHITECTURE.md
-- **Logs:** /opt/sttec/logs/
-- **Database:** /opt/sttec/sttec.db
-- **Config:** /opt/sttec/.env
+- **Logs:** /opt/ygk/logs/
+- **Database:** /opt/ygk/ygk.db
+- **Config:** /opt/ygk/.env
 
 ---
 
@@ -509,7 +509,7 @@ Deployment is successful when:
  Backups working  
  Monitoring configured  
 
-**Congratulations! Your STTEC Schedule system is now live! 🎉**
+**Congratulations! Your ЯГК Schedule system is now live! 🎉**
 
 ---
 

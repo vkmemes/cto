@@ -1,4 +1,4 @@
-# STTEC Schedule - Architecture Documentation
+# ЯГК Schedule - Architecture Documentation
 
 ## 📐 System Architecture
 
@@ -6,7 +6,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     STTEC Schedule System                   │
+│                     ЯГК Schedule System                   │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ┌─────────────────┐    ┌──────────────────┐              │
@@ -627,7 +627,7 @@ ps aux | grep bot_main.py
 curl http://localhost:8000/
 
 # Database status
-sqlite3 sttec.db "SELECT COUNT(*) FROM users;"
+sqlite3 ygk.db "SELECT COUNT(*) FROM users;"
 
 # Logs
 tail -f logs/bot.log | grep ERROR
@@ -645,8 +645,8 @@ tail -f logs/bot.log | grep ERROR
 │                                      │
 │  ┌────────────────────────────────┐ │
 │  │  systemd                       │ │
-│  │  ├── sttec-bot.service         │ │
-│  │  └── sttec-web.service         │ │
+│  │  ├── ygk-bot.service         │ │
+│  │  └── ygk-web.service         │ │
 │  └────────────────────────────────┘ │
 │                                      │
 │  ┌────────────────────────────────┐ │
@@ -656,7 +656,7 @@ tail -f logs/bot.log | grep ERROR
 │                                      │
 │  ┌────────────────────────────────┐ │
 │  │  SQLite Database               │ │
-│  │  /var/lib/sttec/sttec.db      │ │
+│  │  /var/lib/ygk/ygk.db      │ │
 │  └────────────────────────────────┘ │
 │                                      │
 └──────────────────────────────────────┘
@@ -692,7 +692,7 @@ CHANNEL_USERNAME=       # @channel_name
 REPLACEMENT_URL=        # HTML page URL
 
 # Optional
-DATABASE_URL=           # Default: sqlite+aiosqlite:///sttec.db
+DATABASE_URL=           # Default: sqlite+aiosqlite:///ygk.db
 WEB_PORT=               # Default: 8000
 ```
 
@@ -700,7 +700,7 @@ WEB_PORT=               # Default: 8000
 
 - `schedule.json` - Base schedule
 - `.env` - Environment variables
-- `sttec-*.service` - systemd services
+- `ygk-*.service` - systemd services
 
 ---
 
@@ -779,4 +779,4 @@ WEB_PORT=               # Default: 8000
 
 **Document Version:** 1.0  
 **Last Updated:** February 2026  
-**Maintainer:** STTEC Schedule Team
+**Maintainer:** ЯГК Schedule Team

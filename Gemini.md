@@ -1,4 +1,4 @@
-Это **Финальная сборка проекта STTEC (v3.0 Ultimate)**.
+Это **Финальная сборка проекта ЯГК (v3.0 Ultimate)**.
 
 Здесь собран весь функционал, который мы обсуждали:
 1.  **Расписание:** Слияние базы (JSON) и замен (HTML).
@@ -10,10 +10,10 @@
 ---
 
 ## 📂 Структура проекта
-Папка: `/root/sttec_project/`
+Папка: `/root/ygk_project/`
 
 ```text
-sttec_project/
+ygk_project/
 ├── bot_main.py             # Телеграм бот (Polling, Jobs)
 ├── web_main.py             # Веб-сервер (Сайт + API)
 ├── core.py                 # Ядро (Парсинг, Логика расписания)
@@ -50,8 +50,8 @@ logger = logging.getLogger("Core")
 
 SCHEDULE_FILE = 'schedule.json'
 REPLACEMENTS_URLS = [
-    "https://menu.sttec.yar.ru/timetable/rasp_first.html",
-    "https://menu.sttec.yar.ru/timetable/rasp_second.html"
+    "https://menu.ygk.yar.ru/timetable/rasp_first.html",
+    "https://menu.ygk.yar.ru/timetable/rasp_second.html"
 ]
 STOP_WORDS_CANCEL = ["отмена", "нет пары", "самоподготовка", "праздник", "❌", "снято"]
 
@@ -240,7 +240,7 @@ from sqlalchemy import String, Integer, Boolean, DateTime, Date, func, select, B
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DB")
 
-DATABASE_URL = "sqlite+aiosqlite:///sttec.db"
+DATABASE_URL = "sqlite+aiosqlite:///ygk.db"
 
 class Base(AsyncAttrs, DeclarativeBase):
     pass

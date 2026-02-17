@@ -6,7 +6,7 @@
 
 # 📦 Пакет для нового чата (Project Context)
 
-**Проект:** STTEC Schedule (ЯГК Расписание)
+**Проект:** ЯГК Schedule (ЯГК Расписание)
 **Статус:** Level 3 (Production Ready)
 **Инфраструктура:** Linux (Ubuntu), 512 MB RAM (строгое ограничение!), SWAP 2GB.
 **Стек:** Python 3.8, Starlette (Web), python-telegram-bot v20+ (Bot), SQLAlchemy + aiosqlite (Async DB).
@@ -14,7 +14,7 @@
 ### 🛠 Архитектура и Правила (Не менять!)
 
 1.  **База данных (`database.py`):**
-    *   Используем **SQLite** (файл `sttec.db`) в асинхронном режиме.
+    *   Используем **SQLite** (файл `ygk.db`) в асинхронном режиме.
     *   Таблицы: `users` (подписчики), `homeworks` (ДЗ с привязкой к дате и предмету), `students` (список группы), `group_settings` (настройки), `group_pins` (PIN-коды для входа на сайт).
     *   **Важно:** Не предлагать Docker или PostgreSQL (не хватит ОЗУ).
 

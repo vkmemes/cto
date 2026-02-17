@@ -1,9 +1,9 @@
 
-                    STTEC SCHEDULE - IMPLEMENTATION COMPLETE                  ║
+                    ЯГК SCHEDULE - IMPLEMENTATION COMPLETE                  ║
                           Production-Ready System                             ║
 
-PROJECT: STTEC Schedule System
-TASK: Разработать систему STTEC Schedule: Telegram бот, парсер расписания, веб-сайт с Mini Apps
+PROJECT: ЯГК Schedule System
+TASK: Разработать систему ЯГК Schedule: Telegram бот, парсер расписания, веб-сайт с Mini Apps
 STATUS: ✅ COMPLETE
 DATE: February 16, 2026
 
@@ -38,8 +38,8 @@ DATE: February 16, 2026
    • .env.example - Environment template
    • .gitignore - Git ignore patterns
    • schedule.json - Base schedule (sample data)
-   • sttec-bot.service - systemd service for bot
-   • sttec-web.service - systemd service for web
+   • ygk-bot.service - systemd service for bot
+   • ygk-web.service - systemd service for web
 
 
 
@@ -336,13 +336,13 @@ Testing:
 Monitoring:
  logs/bot.log - Bot activity
  logs/web.log - Web requests
- systemctl status sttec-* - Service status
+ systemctl status ygk-* - Service status
 
 
 
  CONCLUSION
 
-The STTEC Schedule system has been fully implemented according to specifications:
+The ЯГК Schedule system has been fully implemented according to specifications:
 
  All features working
  All documentation provided
@@ -356,7 +356,7 @@ The system is ready for immediate deployment and use at Yaroslavl Construction C
 
 
 
-Developed with ❤️ for STTEC
+Developed with ❤️ for ЯГК
 Implementation Date: February 16, 2026
 Version: 1.0
 Status: Production Ready
