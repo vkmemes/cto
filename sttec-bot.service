@@ -1,0 +1,18 @@
+[Unit]
+Description=STTEC Schedule Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/path/to/project
+Environment="PATH=/path/to/project/venv/bin"
+EnvironmentFile=/path/to/project/.env
+ExecStart=/path/to/project/venv/bin/python bot_main.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/path/to/project/logs/bot.log
+StandardError=append:/path/to/project/logs/bot.log
+
+[Install]
+WantedBy=multi-user.target

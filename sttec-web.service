@@ -1,0 +1,18 @@
+[Unit]
+Description=STTEC Schedule Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/path/to/project
+Environment="PATH=/path/to/project/venv/bin"
+EnvironmentFile=/path/to/project/.env
+ExecStart=/path/to/project/venv/bin/python web_main.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/path/to/project/logs/web.log
+StandardError=append:/path/to/project/logs/web.log
+
+[Install]
+WantedBy=multi-user.target
